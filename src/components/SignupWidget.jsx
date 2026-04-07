@@ -82,6 +82,17 @@ export default function SignupWidget({
     setPinned(false);
   }, [guestStudioPath, navigate]);
 
+  /** Desktop-only hover expand — avoids iOS “sticky hover” fighting tap-to-toggle */
+  const setHoverIfSupported = useCallback((value) => {
+    if (!value) {
+      setHover(false);
+      return;
+    }
+    if (typeof window !== "undefined" && window.matchMedia("(hover: hover)").matches) {
+      setHover(true);
+    }
+  }, []);
+
   useEffect(() => {
     if (!pinned) return undefined;
     function onDocPointerDown(e) {
@@ -152,21 +163,21 @@ export default function SignupWidget({
         className={["signup-widget-root relative inline-flex max-w-full", alignClass, className]
           .filter(Boolean)
           .join(" ")}
-        onMouseEnter={() => setHover(true)}
-        onMouseLeave={() => {
-          setHover(false);
-          setPressed(false);
-        }}
-        onFocusCapture={() => setFocusInside(true)}
-        onBlurCapture={(e) => {
-          if (!rootRef.current?.contains(e.relatedTarget)) {
-            setFocusInside(false);
-          }
-        }}
-      >
-        <button
-          type="button"
-          id={`${id}-account-trigger`}
+      onMouseEnter={() => setHoverIfSupported(true)}
+      onMouseLeave={() => {
+        setHover(false);
+        setPressed(false);
+      }}
+      onFocusCapture={() => setFocusInside(true)}
+      onBlurCapture={(e) => {
+        if (!rootRef.current?.contains(e.relatedTarget)) {
+          setFocusInside(false);
+        }
+      }}
+    >
+      <button
+        type="button"
+        id={`${id}-account-trigger`}
           aria-expanded={expandedAccount}
           aria-controls={`${id}-account-panel`}
           title={user.email}
@@ -236,7 +247,7 @@ export default function SignupWidget({
       className={["signup-widget-root relative inline-flex max-w-full", alignClass, className]
         .filter(Boolean)
         .join(" ")}
-      onMouseEnter={() => setHover(true)}
+      onMouseEnter={() => setHoverIfSupported(true)}
       onMouseLeave={() => {
         setHover(false);
         setPressed(false);

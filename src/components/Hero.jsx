@@ -9,7 +9,7 @@ import SignupWidget from "./SignupWidget.jsx";
 export default function Hero() {
   return (
     <section
-      className="hero-section relative min-h-dvh overflow-hidden px-4 py-16 [padding-top:calc(4rem+env(safe-area-inset-top))] [padding-bottom:calc(4rem+env(safe-area-inset-bottom))] sm:px-6"
+      className="hero-section relative min-h-dvh overflow-x-hidden px-4 py-16 [padding-top:calc(4rem+env(safe-area-inset-top))] [padding-bottom:calc(4rem+env(safe-area-inset-bottom))] sm:px-6"
     >
       <MicroDecorHero />
       <FloatingBackground density={12} seed={7} className="z-[1] opacity-40" />

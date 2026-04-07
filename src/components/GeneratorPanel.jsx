@@ -33,7 +33,7 @@ export default function GeneratorPanel({ showHeader = true }) {
               </p>
               <h1 className="mt-3 text-balance text-3xl font-bold tracking-tight text-primary sm:text-[2.35rem] sm:leading-tight">
                 Build your{" "}
-                <span className="text-secondary">status card</span>
+                <span className="text-accent">status card</span>
               </h1>
               <p className="mt-4 max-w-lg text-base leading-relaxed text-secondary">
                 Monochrome, sharp, and screenshot-ready. Edit the fields — the preview

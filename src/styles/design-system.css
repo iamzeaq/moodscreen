@@ -1,10 +1,12 @@
 /**
  * moodscreen — Global design system
- * Monochrome, Apple-like, minimal, premium, calm.
+ * Apple-like, minimal, premium, calm. Page background stays neutral gray; Color Hunt
+ * browns/sage are accents (buttons, “create yours”, bento, text-accent). Dark mode stays
+ * sharp black with warm accents.
  *
  * REUSABLE UTILITIES (from @theme):
  *   Background: bg-surface, bg-surface-elevated, bg-card
- *   Text: text-primary, text-secondary, text-meta, text-placeholder
+ *   Text: text-primary, text-secondary, text-meta, text-placeholder, text-accent
  *   Border: border-border, border-border-focus
  *   Radius: rounded-card (1rem), rounded-card-sm (0.75rem), rounded-input, rounded-pill
  *   Shadow: shadow-card, shadow-card-hover
@@ -32,6 +34,8 @@
   --color-secondary: var(--app-text-secondary);
   --color-meta: var(--app-text-meta);
   --color-placeholder: var(--app-text-placeholder);
+  --color-accent: var(--app-accent);
+  --color-accent-muted: var(--app-accent-soft);
 
   /* iOS-style radius (very smooth) */
   --radius-card: 1rem;
@@ -39,7 +43,7 @@
   --radius-input: 0.75rem;
   --radius-pill: 9999px;
 
-  /* Soft lift — layered for calmer depth (still neutral) */
+  /* Soft lift — neutral depth on gray canvas */
   --shadow-card: 0 1px 0 rgb(0 0 0 / 0.04), 0 1px 2px rgb(0 0 0 / 0.04),
     0 8px 24px rgb(0 0 0 / 0.05);
   --shadow-card-hover: 0 1px 0 rgb(0 0 0 / 0.05), 0 2px 6px rgb(0 0 0 / 0.05),
@@ -55,10 +59,16 @@
   --spacing-inline: 1rem;
 }
 
-/* ============== Theme: Light (default — Linktree-style) ============== */
+/* ============== Theme: Light — neutral canvas + Color Hunt accents ============== */
 :root,
 [data-theme="light"] {
   color-scheme: light;
+  --palette-brown: #8a7650;
+  --palette-sage: #8e977d;
+  --palette-cream: #ece7d1;
+  --palette-sand: #dbcea5;
+
+  /* Page / cards: original cool gray background */
   --app-surface: #f6f6f7;
   --app-surface-elevated: #ffffff;
   --app-card: #ffffff;
@@ -70,22 +80,35 @@
   --app-text-secondary: #3f3f3f;
   --app-text-meta: #6a6a6a;
   --app-text-placeholder: #8a8a8a;
+  --app-accent: #8a7650;
+  --app-accent-soft: #8e977d;
 }
 
-/* ============== Theme: Dark (optional) ============== */
+/* ============== Theme: Dark — sharp black + warm accents ============== */
 [data-theme="dark"] {
   color-scheme: dark;
-  --app-surface: #0e0e0f;
-  --app-surface-elevated: #17171a;
-  --app-card: #17171a;
-  --app-card-hover: #1e1e22;
-  --app-border: rgba(255, 255, 255, 0.09);
-  --app-border-focus: rgba(255, 255, 255, 0.22);
-  --app-card-inner-highlight: inset 0 1px 0 0 rgb(255 255 255 / 0.06);
-  --app-text-primary: #fafafa;
-  --app-text-secondary: #a1a1aa;
-  --app-text-meta: #71717a;
-  --app-text-placeholder: #52525b;
+  --palette-brown: #c4b896;
+  --palette-sage: #8e977d;
+  --palette-cream: #ece7d1;
+  --palette-sand: #dbcea5;
+
+  --app-surface: #000000;
+  --app-surface-elevated: #0c0c0c;
+  --app-card: #121212;
+  --app-card-hover: #1a1a1a;
+  --app-border: rgba(142, 151, 125, 0.22);
+  --app-border-focus: rgba(219, 206, 165, 0.38);
+  --app-card-inner-highlight: inset 0 1px 0 0 rgb(255 255 255 / 0.05);
+  --app-text-primary: #faf8f4;
+  --app-text-secondary: #c9c2b4;
+  --app-text-meta: #8e977d;
+  --app-text-placeholder: #6b665c;
+  --app-accent: #dbcea5;
+  --app-accent-soft: #8e977d;
+  --shadow-card: 0 1px 0 rgb(255 255 255 / 0.04), 0 1px 2px rgb(0 0 0 / 0.35),
+    0 10px 32px rgb(0 0 0 / 0.45);
+  --shadow-card-hover: 0 1px 0 rgb(255 255 255 / 0.05), 0 2px 8px rgb(0 0 0 / 0.4),
+    0 18px 48px rgb(0 0 0 / 0.5);
 }
 
 /* ============== Base ============== */
@@ -259,7 +282,7 @@ body {
   .ds-input:focus {
     outline: none;
     border-color: var(--app-border-focus);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-text-primary) 8%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-accent) 22%, transparent);
   }
   .ds-input:hover:not(:focus) {
     border-color: var(--app-border-focus);
@@ -328,7 +351,7 @@ body {
   }
 }
 
-/* ============== Landing hero (light / neutral, minimal) ============== */
+/* ============== Landing hero — original soft gray wash (unchanged look) ============== */
 .hero-section {
   background-color: #eef0f3;
   background-image: radial-gradient(
@@ -381,9 +404,8 @@ body {
 
 .generator-panel .ds-input:focus {
   outline: none;
-  border-color: var(--app-text-primary) !important;
-  box-shadow: 0 0 0 3px
-    color-mix(in srgb, var(--app-text-primary) 12%, transparent) !important;
+  border-color: var(--app-border-focus) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-accent) 24%, transparent) !important;
 }
 
 .generator-btn {
@@ -410,14 +432,14 @@ body {
 }
 
 .generator-btn-primary {
-  background-color: var(--app-text-primary);
-  color: var(--app-card);
-  border: 2px solid var(--app-text-primary);
+  background-color: var(--app-accent);
+  color: #fcfbf7;
+  border: 2px solid var(--app-accent);
 }
 
 .generator-btn-primary:hover:not(:disabled) {
   background-color: transparent;
-  color: var(--app-text-primary);
+  color: var(--app-accent);
 }
 
 .generator-btn-ghost {
@@ -427,8 +449,8 @@ body {
 }
 
 .generator-btn-ghost:hover:not(:disabled) {
-  border-color: var(--app-text-primary);
-  color: var(--app-text-primary);
+  border-color: var(--app-accent);
+  color: var(--app-accent);
 }
 
 .generator-preview-rim {
@@ -540,16 +562,15 @@ body {
   min-width: min(100%, 12rem);
   border-color: transparent !important;
   background: linear-gradient(
-    90deg,
-    #787d6a 0%,
-    #858872 24%,
-    #949578 48%,
-    #a3a082 72%,
-    #aeac8c 100%
+    125deg,
+    #8a7650 0%,
+    #8e977d 42%,
+    #a8b396 78%,
+    #c9c4a8 100%
   ) !important;
-  box-shadow: 0 12px 36px -14px rgba(42, 48, 36, 0.35),
-    0 0 0 1px rgba(255, 255, 255, 0.22) inset,
-    0 1px 0 rgba(255, 255, 255, 0.18) inset !important;
+  box-shadow: 0 12px 36px -14px rgba(62, 48, 36, 0.38),
+    0 0 0 1px rgba(255, 255, 255, 0.24) inset,
+    0 1px 0 rgba(255, 255, 255, 0.2) inset !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
@@ -623,21 +644,22 @@ body {
   transform: scale(0.98);
 }
 
+/* max-height expand — avoids iOS/Safari grid 0fr→1fr + overflow clipping hiding the first row (Google) */
 .signup-widget-panel {
-  display: grid;
-  grid-template-rows: 0fr;
+  display: block;
+  max-height: 0;
   opacity: 0;
-  transition: grid-template-rows 0.22s cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 0.18s ease;
+  overflow: hidden;
+  transition: max-height 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
 }
 
 .signup-widget-panel--open {
-  grid-template-rows: 1fr;
+  max-height: 22rem;
   opacity: 1;
 }
 
 .signup-widget-panel-inner {
-  overflow: hidden;
+  overflow: visible;
   min-height: 0;
 }
 
@@ -719,6 +741,10 @@ body {
 }
 
 /* Primary rows — subtle grey lift on black */
+.signup-widget-action {
+  touch-action: manipulation;
+}
+
 .signup-widget-shell--dropdown-open .signup-widget-action {
   background: rgba(255, 255, 255, 0.09) !important;
   border-color: rgba(255, 255, 255, 0.12) !important;
