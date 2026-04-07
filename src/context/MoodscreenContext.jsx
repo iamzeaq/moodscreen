@@ -28,6 +28,14 @@ import {
 import { sanitizeMoodEntries } from "../lib/moodscreenValidation.js";
 import { captureMoodscreenCardToPngBlob } from "../lib/captureMoodscreenCard.js";
 
+/** Touch / mobile browsers need longer before revoke or the save dialog never receives the blob. */
+function downloadRevokeDelayMs() {
+  if (typeof navigator === "undefined") return 2500;
+  if (navigator.maxTouchPoints > 0) return 8000;
+  if (/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)) return 8000;
+  return 2500;
+}
+
 /** Blob download — revoke URL after a delay so the browser can start the save (immediate revoke often cancels). */
 function triggerBrowserDownload(blob, filename) {
   const url = URL.createObjectURL(blob);
@@ -43,7 +51,7 @@ function triggerBrowserDownload(blob, filename) {
   window.setTimeout(() => {
     a.remove();
     URL.revokeObjectURL(url);
-  }, 2500);
+  }, downloadRevokeDelayMs());
 }
 
 /** Last resort: open image in a new tab so the user can save manually (common on iOS Safari). */
@@ -247,17 +255,17 @@ export function MoodscreenProvider({ children }) {
 
   const moodRows = useMemo(() => moodRowsFromEntries(moodEntries), [moodEntries]);
 
-  const [isDownloading, setIsDownloading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [copied, setCopied] = useState(false);
   const [downloadError, setDownloadError] = useState(null);
 
   const downloadPng = useCallback(async () => {
-    if (isDownloading) return;
+    if (isExporting) return;
     if (typeof document === "undefined" || !document.getElementById("moodscreen-card")) {
       setDownloadError("Card preview is not ready — open the studio and try again.");
       return;
     }
-    setIsDownloading(true);
+    setIsExporting(true);
     setDownloadError(null);
     /* iOS Safari blocks window.open after await unless we open a tab synchronously with the click. */
     let iosBlankTab = null;
@@ -328,9 +336,73 @@ export function MoodscreenProvider({ children }) {
           : `Export failed: ${short}`,
       );
     } finally {
-      setIsDownloading(false);
+      setIsExporting(false);
     }
-  }, [isDownloading]);
+  }, [isExporting]);
+
+  const sharePng = useCallback(async () => {
+    if (isExporting) return;
+    if (typeof document === "undefined" || !document.getElementById("moodscreen-card")) {
+      setDownloadError("Card preview is not ready — open the studio and try again.");
+      return;
+    }
+    setIsExporting(true);
+    setDownloadError(null);
+    try {
+      if (typeof document !== "undefined" && document.fonts?.ready) {
+        try {
+          await document.fonts.ready;
+        } catch {
+          /* ignore */
+        }
+      }
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+      const blob = await captureMoodscreenCardToPngBlob();
+      if (!blob || blob.size === 0) {
+        setDownloadError("Could not capture the card (empty image).");
+        return;
+      }
+
+      const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      const filename = `moodscreen-${ts}.png`;
+      const file = new File([blob], filename, { type: "image/png" });
+
+      if (
+        typeof navigator === "undefined" ||
+        typeof navigator.share !== "function" ||
+        !navigator.canShare?.({ files: [file] })
+      ) {
+        setDownloadError(
+          "Sharing isn’t available in this browser — use Download PNG to save the image.",
+        );
+        return;
+      }
+
+      await navigator.share({
+        files: [file],
+        title: "Moodscreen",
+        text: "My status card",
+      });
+    } catch (e) {
+      if (e && e.name === "AbortError") {
+        return;
+      }
+      console.warn("moodscreen PNG share failed:", e);
+      const msg = e && typeof e.message === "string" ? e.message : String(e);
+      const short =
+        msg.length > 0 && msg.length < 200
+          ? msg
+          : "Unknown error during share.";
+      setDownloadError(
+        short.includes("timed out")
+          ? "Export took too long. Try again, or clear the profile photo and retry."
+          : `Share failed: ${short}`,
+      );
+    } finally {
+      setIsExporting(false);
+    }
+  }, [isExporting]);
 
   const copyLink = useCallback(async () => {
     setCopied(false);
@@ -364,8 +436,9 @@ export function MoodscreenProvider({ children }) {
       formValue,
       handleFormChange,
       downloadPng,
+      sharePng,
       copyLink,
-      isDownloading,
+      isExporting,
       copied,
       downloadError,
       cardProps,
@@ -376,8 +449,9 @@ export function MoodscreenProvider({ children }) {
       formValue,
       handleFormChange,
       downloadPng,
+      sharePng,
       copyLink,
-      isDownloading,
+      isExporting,
       copied,
       downloadError,
       cardProps,

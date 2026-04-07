@@ -9,8 +9,9 @@ export default function GeneratorPanel({ showHeader = true }) {
     formValue,
     handleFormChange,
     downloadPng,
+    sharePng,
     copyLink,
-    isDownloading,
+    isExporting,
     copied,
     downloadError,
     cardProps,
@@ -84,13 +85,26 @@ export default function GeneratorPanel({ showHeader = true }) {
                     </button>
                     <button
                       type="button"
+                      onClick={sharePng}
+                      disabled={isExporting}
+                      className="generator-btn generator-btn-ghost"
+                      title="Share the card image (best on phones)"
+                    >
+                      {isExporting ? "Preparing…" : "Share"}
+                    </button>
+                    <button
+                      type="button"
                       onClick={downloadPng}
-                      disabled={isDownloading}
+                      disabled={isExporting}
                       className="generator-btn generator-btn-primary"
                     >
-                      {isDownloading ? "Preparing…" : "Download PNG"}
+                      {isExporting ? "Preparing…" : "Download PNG"}
                     </button>
                   </div>
+                  <p className="text-[0.7rem] leading-snug text-meta lg:hidden">
+                    On mobile, Share opens your apps to save or send the PNG. Download
+                    depends on your browser.
+                  </p>
                 </div>
                 {downloadError ? (
                   <p className="max-w-[min(100%,24rem)] text-xs leading-relaxed text-red-600/90 dark:text-red-400/90">
