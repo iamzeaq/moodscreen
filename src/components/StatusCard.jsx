@@ -52,7 +52,7 @@ export default function StatusCard({
 
   /* Solid backgrounds (no backdrop-blur) */
   const shell = darkMode
-    ? "border border-white/[0.06] bg-[#0f0f10] text-white shadow-[0_8px_30px_rgba(0,0,0,0.12)]"
+    ? "border border-white/[0.06] bg-black text-white shadow-[0_8px_30px_rgba(0,0,0,0.12)]"
     : "border border-black/[0.08] bg-[#faf9f7] text-neutral-900 shadow-[0_8px_30px_rgba(0,0,0,0.08)]";
 
   const nameCls = "truncate text-[0.9375rem] font-semibold leading-tight tracking-[-0.02em]";

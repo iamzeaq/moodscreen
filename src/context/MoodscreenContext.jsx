@@ -381,8 +381,8 @@ export function MoodscreenProvider({ children }) {
 
       await navigator.share({
         files: [file],
-        title: "Moodscreen",
-        text: "My status card",
+        title: "moodscreen",
+        text: "moodscreen",
       });
     } catch (e) {
       if (e && e.name === "AbortError") {

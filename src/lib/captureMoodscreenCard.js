@@ -5,7 +5,10 @@
  * Remote profile photos are inlined as data URLs on the live card before cloning so CORS/taint is avoided.
  */
 
-const EXPORT_BG = "#0a0a0a";
+/** Match StatusCard dark shell — pure black for sharp export */
+const EXPORT_BG = "#000000";
+const EXPORT_FONT =
+  '-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif';
 const EXPORT_TEXT_PRIMARY = "rgba(255, 255, 255, 0.92)";
 const EXPORT_TEXT_SECONDARY = "rgba(255, 255, 255, 0.6)";
 const EXPORT_TEXT_MUTED = "rgba(255, 255, 255, 0.45)";
@@ -151,6 +154,8 @@ function applyExportShellStyles(clone, widthPx) {
   el.style.width = `${widthPx}px`;
   el.style.maxWidth = `${widthPx}px`;
   el.style.height = "auto";
+  el.style.fontFamily = EXPORT_FONT;
+  el.style.lineHeight = "normal";
   el.style.webkitFontSmoothing = "antialiased";
 
   el.querySelectorAll("img").forEach((img) => {
@@ -238,8 +243,10 @@ export async function captureMoodscreenCardToPngBlob() {
 
     const host = document.createElement("div");
     host.setAttribute("aria-hidden", "true");
+    /* line-height must not be 0 — it breaks flex/text metrics vs on-screen layout */
     host.style.cssText =
-      "position:fixed;left:-99999px;top:0;margin:0;padding:0;border:0;background:transparent;line-height:0;z-index:-1;overflow:visible;";
+      "position:fixed;left:-99999px;top:0;margin:0;padding:0;border:0;background:transparent;line-height:normal;z-index:-1;overflow:visible;";
+    host.style.fontFamily = EXPORT_FONT;
     host.appendChild(clone);
     document.body.appendChild(host);
 
@@ -254,7 +261,8 @@ export async function captureMoodscreenCardToPngBlob() {
         pixelRatio: 2,
         backgroundColor: EXPORT_BG,
         cacheBust: true,
-        skipFonts: true,
+        /* Must embed @font-face (Inter) or metrics differ from the live preview */
+        skipFonts: false,
         width: ww || w,
         height: wh || h,
       };
