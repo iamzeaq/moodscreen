@@ -1,0 +1,8 @@
+@import "tailwindcss";
+@import "./design-system.css";
+@import "./micro-graphics.css";
+
+/* Prevent rare horizontal page scroll from long unbroken content */
+body {
+  overflow-x: hidden;
+}

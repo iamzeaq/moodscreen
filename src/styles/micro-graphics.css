@@ -1,0 +1,73 @@
+/**
+ * Monochrome micro-graphics — remove this import from index.css to revert.
+ */
+
+/* Dot grid (light surfaces) — slightly finer, softer */
+.ms-micro-dots {
+  background-image: radial-gradient(rgba(0, 0, 0, 0.048) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Dot grid (dark / on dark cards) */
+.ms-micro-dots--inverse {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+/* Blueprint-style mesh */
+.ms-micro-mesh {
+  background-image: linear-gradient(rgba(0, 0, 0, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.028) 1px, transparent 1px);
+  background-size: 52px 52px;
+}
+
+/* Soft grayscale wash orbs — layered for depth */
+.ms-micro-orbs {
+  background: radial-gradient(ellipse 72% 58% at 76% 10%, rgba(0, 0, 0, 0.05) 0%, transparent 54%),
+    radial-gradient(ellipse 58% 48% at 10% 86%, rgba(0, 0, 0, 0.04) 0%, transparent 52%),
+    radial-gradient(ellipse 40% 30% at 50% 50%, rgba(0, 0, 0, 0.018) 0%, transparent 60%);
+}
+
+@keyframes ms-micro-drift-slow {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(-12px, 8px) scale(1.02);
+  }
+}
+
+.ms-micro-orbs--drift {
+  animation: ms-micro-drift-slow 32s ease-in-out infinite;
+}
+
+/* Section rule: dots + hairline */
+.ms-micro-rule {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  opacity: 0.42;
+  color: var(--app-text-primary);
+}
+
+.ms-micro-rule__dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 9999px;
+  background: currentColor;
+  opacity: 0.65;
+}
+
+.ms-micro-rule__line {
+  height: 1px;
+  width: min(5rem, 28vw);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--app-text-primary) 28%, transparent),
+    color-mix(in srgb, var(--app-text-primary) 14%, transparent),
+    transparent
+  );
+}
