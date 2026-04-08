@@ -60,23 +60,21 @@ export default function AuthModal() {
             type="button"
             disabled={busy !== null}
             onClick={() => run("google", loginWithGoogle)}
+            aria-label={busy === "google" ? "Redirecting to Google" : "Sign in with Google"}
             className="generator-btn generator-btn-primary inline-flex w-full items-center justify-center gap-3 disabled:opacity-50"
           >
             <GoogleLogoMark size={20} />
-            <span>
-              {busy === "google" ? "Redirecting…" : "Continue with Google"}
-            </span>
+            <span>{busy === "google" ? "Redirecting…" : "Sign in"}</span>
           </button>
           <button
             type="button"
             disabled={busy !== null}
             onClick={() => run("twitter", loginWithTwitter)}
+            aria-label={busy === "twitter" ? "Redirecting to X" : "Sign in with X (Twitter)"}
             className="generator-btn generator-btn-ghost inline-flex w-full items-center justify-center gap-3 disabled:opacity-50"
           >
             <XLogoMark size={20} className="text-primary" />
-            <span>
-              {busy === "twitter" ? "Redirecting…" : "Continue with X (Twitter)"}
-            </span>
+            <span>{busy === "twitter" ? "Redirecting…" : "Sign in"}</span>
           </button>
           <button
             type="button"

@@ -14,6 +14,8 @@ export default function GeneratorPanel({ showHeader = true }) {
     isExporting,
     copied,
     downloadError,
+    shareHint,
+    sharePrimed,
     cardProps,
     storageNotice,
   } = useMoodscreen();
@@ -88,9 +90,17 @@ export default function GeneratorPanel({ showHeader = true }) {
                       onClick={sharePng}
                       disabled={isExporting}
                       className="generator-btn generator-btn-ghost"
-                      title="Share the card image (best on phones)"
+                      title={
+                        sharePrimed
+                          ? "Open the share sheet (image + your link)"
+                          : "Step 1: prepare image — then tap again to share"
+                      }
                     >
-                      {isExporting ? "Preparing…" : "Share"}
+                      {isExporting
+                        ? "Preparing…"
+                        : sharePrimed
+                          ? "Share now"
+                          : "Share"}
                     </button>
                     <button
                       type="button"
@@ -102,13 +112,21 @@ export default function GeneratorPanel({ showHeader = true }) {
                     </button>
                   </div>
                   <p className="text-[0.7rem] leading-snug text-meta lg:hidden">
-                    On mobile, Share opens your apps to save or send the PNG. Download
-                    depends on your browser.
+                    Tap Share twice: first prepares your card, second opens the system
+                    sheet (image + link). Download saves the PNG locally.
                   </p>
                 </div>
                 {downloadError ? (
                   <p className="max-w-[min(100%,24rem)] text-xs leading-relaxed text-red-600/90 dark:text-red-400/90">
                     {downloadError}
+                  </p>
+                ) : null}
+                {shareHint ? (
+                  <p
+                    className="max-w-[min(100%,24rem)] text-xs leading-relaxed text-secondary"
+                    role="status"
+                  >
+                    {shareHint}
                   </p>
                 ) : null}
                 {storageNotice ? (

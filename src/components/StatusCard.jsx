@@ -3,8 +3,6 @@
  * Max 420px, minimal typography, optional light mode.
  */
 
-import MoodscreenMark from "./MoodscreenMark.jsx";
-
 /** Card-only stack (preview); not global */
 const CARD_FONT =
   '-apple-system, BlinkMacSystemFont, "Inter", sans-serif';
@@ -99,7 +97,7 @@ export default function StatusCard({
         ].join(" ")}
         style={{ fontFamily: CARD_FONT }}
       >
-        {/* Top row — mark on the right; status dot beside name */}
+        {/* Top row — avatar, name + status dot, location */}
         <div className="flex items-start gap-3">
           <div className="relative h-11 w-11 shrink-0">
             {avatar ? (
@@ -133,11 +131,6 @@ export default function StatusCard({
               <p className={`mood-location ${locCls}`}>{location.trim()}</p>
             ) : null}
           </div>
-
-          <MoodscreenMark
-            darkMode={darkMode}
-            className="mt-0.5 h-[22px] w-[17px] shrink-0 select-none"
-          />
         </div>
 
         {/* Mood entries — one unit per row: subtle label + main quote */}

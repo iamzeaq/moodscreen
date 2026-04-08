@@ -93,15 +93,24 @@ export default function SignupWidget({
     }
   }, []);
 
+  /* Defer outside-click listener one frame so open + outside detection don’t race on mobile */
   useEffect(() => {
     if (!pinned) return undefined;
+    let cancelled = false;
     function onDocPointerDown(e) {
       if (!rootRef.current?.contains(e.target)) {
         setPinned(false);
       }
     }
-    document.addEventListener("pointerdown", onDocPointerDown, true);
-    return () => document.removeEventListener("pointerdown", onDocPointerDown, true);
+    const raf = requestAnimationFrame(() => {
+      if (cancelled) return;
+      document.addEventListener("pointerdown", onDocPointerDown, true);
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+      document.removeEventListener("pointerdown", onDocPointerDown, true);
+    };
   }, [pinned]);
 
   useEffect(() => {
@@ -334,28 +343,37 @@ export default function SignupWidget({
                     type="button"
                     disabled={busy !== null}
                     onClick={() => runProvider("google", loginWithGoogle)}
-                    className="signup-widget-action flex min-h-11 items-center gap-3 rounded-2xl border border-black/[0.08] bg-white/60 px-4 text-left text-sm font-medium text-primary shadow-[0_1px_0_rgba(0,0,0,0.04)] transition-[transform,background-color,box-shadow] duration-300 ease-out hover:bg-white hover:shadow-[0_4px_16px_-6px_rgba(0,0,0,0.12)] active:scale-[0.99] disabled:opacity-50"
+                    aria-label={
+                      busy === "google" ? "Redirecting to Google" : "Sign in with Google"
+                    }
+                    className="signup-widget-action flex min-h-11 items-center gap-3 rounded-2xl border border-black/[0.08] bg-white/60 px-4 text-left text-sm font-medium text-primary shadow-[0_1px_0_rgba(0,0,0,0.04)] transition-[transform,background-color] duration-150 ease-out hover:bg-white active:scale-[0.99] disabled:opacity-50"
                   >
                     <GoogleLogoMark size={20} />
-                    <span>
-                      {busy === "google" ? "Redirecting…" : "Continue with Google"}
-                    </span>
+                    <span>{busy === "google" ? "Redirecting…" : "Sign in"}</span>
                   </button>
                   <button
                     type="button"
                     disabled={busy !== null}
                     onClick={() => runProvider("twitter", loginWithTwitter)}
-                    className="signup-widget-action flex min-h-11 items-center gap-3 rounded-2xl border border-black/[0.08] bg-white/60 px-4 text-left text-sm font-medium text-primary shadow-[0_1px_0_rgba(0,0,0,0.04)] transition-[transform,background-color,box-shadow] duration-300 ease-out hover:bg-white hover:shadow-[0_4px_16px_-6px_rgba(0,0,0,0.12)] active:scale-[0.99] disabled:opacity-50"
+                    aria-label={
+                      busy === "twitter" ? "Redirecting to X" : "Sign in with X (Twitter)"
+                    }
+                    className="signup-widget-action flex min-h-11 items-center gap-3 rounded-2xl border border-black/[0.08] bg-white/60 px-4 text-left text-sm font-medium text-primary shadow-[0_1px_0_rgba(0,0,0,0.04)] transition-[transform,background-color] duration-150 ease-out hover:bg-white active:scale-[0.99] disabled:opacity-50"
                   >
                     <XLogoMark size={20} className="text-white" />
-                    <span>
-                      {busy === "twitter" ? "Redirecting…" : "Continue with X (Twitter)"}
-                    </span>
+                    <span>{busy === "twitter" ? "Redirecting…" : "Sign in"}</span>
                   </button>
                 </>
               ) : sessionReady ? (
-                <p className="px-1 pb-1 text-xs text-meta">
-                  Add Supabase keys to enable sign-in — you can still use the studio.
+                <p className="px-1 pb-1 text-xs leading-relaxed text-meta">
+                  Sign-in isn&apos;t available on this build (missing{" "}
+                  <code className="rounded bg-white/10 px-1 py-0.5 text-[0.65rem]">VITE_SUPABASE_URL</code>{" "}
+                  /{" "}
+                  <code className="rounded bg-white/10 px-1 py-0.5 text-[0.65rem]">
+                    VITE_SUPABASE_ANON_KEY
+                  </code>{" "}
+                  in the host environment). Add them and redeploy — same on phone and desktop.
+                  You can still use the studio.
                 </p>
               ) : null}
               <button

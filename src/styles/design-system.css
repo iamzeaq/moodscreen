@@ -644,13 +644,13 @@ body {
   transform: scale(0.98);
 }
 
-/* max-height expand — avoids iOS/Safari grid 0fr→1fr + overflow clipping hiding the first row (Google) */
+/* max-height expand — avoids iOS/Safari grid 0fr→1fr clipping; no inner opacity stagger (fixes flaky paint / “missing Google” on mobile) */
 .signup-widget-panel {
   display: block;
   max-height: 0;
   opacity: 0;
   overflow: hidden;
-  transition: max-height 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+  transition: max-height 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s ease;
 }
 
 .signup-widget-panel--open {
@@ -663,15 +663,32 @@ body {
   min-height: 0;
 }
 
-.signup-widget-panel .signup-widget-actions {
-  opacity: 0;
-  transform: translateY(4px);
-  transition: opacity 0.2s ease 0.02s, transform 0.22s cubic-bezier(0.4, 0, 0.2, 1) 0.02s;
+@media (hover: hover) and (pointer: fine) {
+  .signup-widget-panel .signup-widget-actions {
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.18s ease 0.02s, transform 0.2s cubic-bezier(0.4, 0, 0.2, 1) 0.02s;
+  }
+
+  .signup-widget-panel--open .signup-widget-actions {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.signup-widget-panel--open .signup-widget-actions {
-  opacity: 1;
-  transform: translateY(0);
+@media (hover: none), (pointer: coarse) {
+  .signup-widget-panel {
+    transition: max-height 0.14s ease-out, opacity 0.1s ease;
+  }
+
+  .signup-widget-shell {
+    transition-property: transform, box-shadow, opacity !important;
+    transition-duration: 0.12s !important;
+  }
+
+  .signup-widget-shell--expanded {
+    transform: translateY(-2px) scale(1);
+  }
 }
 
 /* Collapsed chip stays soft / light even when the page uses data-theme="dark" */
