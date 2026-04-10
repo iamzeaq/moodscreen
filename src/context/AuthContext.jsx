@@ -15,6 +15,10 @@ import {
   onAuthStateChange,
 } from "../services/authService.js";
 import { migrateGuestStorageToUser } from "../services/moodscreenDataService.js";
+import {
+  fetchProfileByUserId,
+  syncProfileOnLogin,
+} from "../services/profileService.js";
 
 const AuthContext = createContext(null);
 
@@ -25,6 +29,9 @@ export function AuthProvider({ children }) {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   /** Bumped after sign-in / sign-out so moodscreen layer can re-hydrate */
   const [authVersion, setAuthVersion] = useState(0);
+  /** Supabase `profiles` row — username, location, last_active */
+  const [profile, setProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   const bumpAuthVersion = useCallback(() => {
     setAuthVersion((v) => v + 1);
@@ -44,9 +51,19 @@ export function AuthProvider({ children }) {
   const logout = useCallback(async () => {
     const { error } = await svcLogout();
     setUser(null);
+    setProfile(null);
     bumpAuthVersion();
     return { error };
   }, [bumpAuthVersion]);
+
+  const refreshProfile = useCallback(async () => {
+    if (!isSupabaseConfigured() || !user?.id) {
+      setProfile(null);
+      return;
+    }
+    const { data } = await fetchProfileByUserId(user.id);
+    setProfile(data ?? null);
+  }, [user?.id]);
 
   useEffect(() => {
     if (!isSupabaseConfigured()) {
@@ -83,6 +100,37 @@ export function AuthProvider({ children }) {
     };
   }, [bumpAuthVersion]);
 
+  useEffect(() => {
+    if (!sessionReady) return undefined;
+    if (!isSupabaseConfigured()) {
+      setProfile(null);
+      setProfileLoading(false);
+      return undefined;
+    }
+    if (!user?.id) {
+      setProfile(null);
+      setProfileLoading(false);
+      return undefined;
+    }
+    let cancelled = false;
+    const run = async () => {
+      setProfileLoading(true);
+      const { data, error } = await syncProfileOnLogin(user.id);
+      if (cancelled) return;
+      if (error) {
+        console.warn("profile sync:", error.message);
+        setProfile(null);
+      } else {
+        setProfile(data ?? null);
+      }
+      setProfileLoading(false);
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionReady, user?.id, authVersion]);
+
   const value = useMemo(
     () => ({
       user,
@@ -95,6 +143,9 @@ export function AuthProvider({ children }) {
       logout,
       authVersion,
       isSupabaseConfigured: isSupabaseConfigured(),
+      profile,
+      profileLoading,
+      refreshProfile,
     }),
     [
       user,
@@ -106,6 +157,9 @@ export function AuthProvider({ children }) {
       loginWithTwitter,
       logout,
       authVersion,
+      profile,
+      profileLoading,
+      refreshProfile,
     ],
   );
 

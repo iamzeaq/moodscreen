@@ -26,7 +26,7 @@ function Chevron({ expanded, className, compact }) {
   const s = compact ? 14 : 16;
   return (
     <svg
-      className={[className, "signup-widget-chevron transition-transform duration-200 ease-out"].filter(Boolean).join(" ")}
+      className={[className, "signup-widget-chevron transition-transform duration-150 ease-out"].filter(Boolean).join(" ")}
       style={{ transform: expanded ? "rotate(90deg)" : "rotate(0deg)" }}
       width={s}
       height={s}
@@ -270,9 +270,9 @@ export default function SignupWidget({
     >
       <div
         className={[
-          "signup-widget-shell signup-widget-shell--guest signup-widget-shell--gradient-cta transition-[transform,box-shadow,min-width,background-color,border-color,border-radius,color] duration-200 ease-out",
+          "signup-widget-shell signup-widget-shell--guest signup-widget-shell--gradient-cta transition-[transform,box-shadow,min-width,background-color,border-color,border-radius,color] duration-150 ease-[cubic-bezier(0.33,0.9,0.32,1)]",
           expandedGuest
-            ? "rounded-[1.125rem] border border-neutral-900/88 bg-[rgba(252,252,253,0.98)] shadow-[0_4px_20px_-6px_rgba(0,0,0,0.12),0_0_0_1px_rgba(255,255,255,0.8)_inset]"
+            ? "rounded-[1rem] border border-neutral-900/88 bg-[rgba(252,252,253,0.98)] shadow-[0_4px_20px_-6px_rgba(0,0,0,0.12),0_0_0_1px_rgba(255,255,255,0.8)_inset]"
             : "rounded-full border-0",
           expandedGuest ? "signup-widget-shell--expanded" : "",
           expandedGuest ? "signup-widget-shell--dropdown-open" : "",
@@ -287,7 +287,7 @@ export default function SignupWidget({
           aria-expanded={expandedGuest}
           aria-controls={`${id}-panel`}
           className={[
-            "signup-widget-trigger flex w-full min-h-10 items-center justify-between gap-2 px-5 py-2.5 text-left text-sm font-semibold tracking-[-0.01em] transition-[padding,color] duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent",
+            "signup-widget-trigger flex w-full min-h-10 items-center justify-between gap-2 px-5 py-2.5 text-left text-sm font-semibold tracking-[-0.01em] transition-[padding,color] duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent",
             expandedGuest
               ? "text-primary focus-visible:ring-black/15"
               : "min-h-12 text-[#1e2118] focus-visible:ring-[#3d4a2e]/35",
@@ -300,7 +300,7 @@ export default function SignupWidget({
         >
           <span
             className={[
-              "signup-widget-label min-w-0 flex-1 truncate transition-[font-size,opacity] duration-200 ease-out",
+              "signup-widget-label min-w-0 flex-1 truncate transition-[font-size,opacity] duration-150 ease-out",
               expandedGuest ? "text-[0.8125rem] text-secondary" : "",
             ]
               .filter(Boolean)
@@ -366,14 +366,17 @@ export default function SignupWidget({
                 </>
               ) : sessionReady ? (
                 <p className="px-1 pb-1 text-xs leading-relaxed text-meta">
-                  Sign-in isn&apos;t available on this build (missing{" "}
+                  Sign-in isn&apos;t wired up for this deployment: the production bundle was built without Supabase env
+                  vars. Vite bakes{" "}
                   <code className="rounded bg-white/10 px-1 py-0.5 text-[0.65rem]">VITE_SUPABASE_URL</code>{" "}
-                  /{" "}
+                  and{" "}
                   <code className="rounded bg-white/10 px-1 py-0.5 text-[0.65rem]">
                     VITE_SUPABASE_ANON_KEY
                   </code>{" "}
-                  in the host environment). Add them and redeploy — same on phone and desktop.
-                  You can still use the studio.
+                  in at build time. Add both in your hosting dashboard (e.g. Vercel / Netlify / Cloudflare → Environment
+                  variables for Production), save, then trigger a new deploy. Your local{" "}
+                  <code className="rounded bg-white/10 px-1 py-0.5 text-[0.65rem]">.env</code> does not affect the live
+                  site. You can still use the studio.
                 </p>
               ) : null}
               <button

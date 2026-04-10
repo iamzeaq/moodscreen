@@ -17,7 +17,9 @@ export default function AuthModal() {
 
   async function run(provider, fn) {
     if (!isSupabaseConfigured) {
-      setMessage("Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to use sign-in.");
+      setMessage(
+        "Sign-in needs VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your host’s build env, then redeploy (Vite inlines them at build time).",
+      );
       return;
     }
     setMessage(null);

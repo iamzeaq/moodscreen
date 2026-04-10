@@ -618,7 +618,7 @@ body {
 }
 
 .signup-widget-shell--nav-account.signup-widget-shell--expanded {
-  min-width: min(100%, 17.5rem);
+  min-width: min(100%, 16.25rem);
 }
 
 .signup-widget-shell:not(.signup-widget-shell--expanded):hover:not(
@@ -630,31 +630,31 @@ body {
 }
 
 .signup-widget-shell--expanded {
-  min-width: min(100%, 17.25rem);
-  transform: translateY(-4px) scale(1);
-  box-shadow: 0 16px 48px -14px rgba(0, 0, 0, 0.16),
+  min-width: min(100%, 16.25rem);
+  transform: translateY(-1px) scale(1);
+  box-shadow: 0 12px 40px -12px rgba(0, 0, 0, 0.14),
     0 0 0 1px rgba(255, 255, 255, 0.7) inset;
 }
 
 .signup-widget-shell--expanded.signup-widget-shell--pressed {
-  transform: translateY(-2px) scale(0.99);
+  transform: translateY(0) scale(0.99);
 }
 
 .signup-widget-shell--pressed:not(.signup-widget-shell--expanded) {
   transform: scale(0.98);
 }
 
-/* max-height expand — avoids iOS/Safari grid 0fr→1fr clipping; no inner opacity stagger (fixes flaky paint / “missing Google” on mobile) */
+/* max-height expand — avoids iOS/Safari grid 0fr→1fr clipping */
 .signup-widget-panel {
   display: block;
   max-height: 0;
   opacity: 0;
   overflow: hidden;
-  transition: max-height 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s ease;
+  transition: max-height 0.14s cubic-bezier(0.32, 0.72, 0.27, 1), opacity 0.1s ease;
 }
 
 .signup-widget-panel--open {
-  max-height: 22rem;
+  max-height: 24rem;
   opacity: 1;
 }
 
@@ -663,22 +663,11 @@ body {
   min-height: 0;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .signup-widget-panel .signup-widget-actions {
-    opacity: 0;
-    transform: translateY(4px);
-    transition: opacity 0.18s ease 0.02s, transform 0.2s cubic-bezier(0.4, 0, 0.2, 1) 0.02s;
-  }
-
-  .signup-widget-panel--open .signup-widget-actions {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+/* No inner stagger on desktop — one motion with the panel reads tighter than fade+slide on actions */
 
 @media (hover: none), (pointer: coarse) {
   .signup-widget-panel {
-    transition: max-height 0.14s ease-out, opacity 0.1s ease;
+    transition: max-height 0.12s cubic-bezier(0.32, 0.72, 0.27, 1), opacity 0.08s ease;
   }
 
   .signup-widget-shell {
@@ -687,7 +676,7 @@ body {
   }
 
   .signup-widget-shell--expanded {
-    transform: translateY(-2px) scale(1);
+    transform: translateY(-1px) scale(1);
   }
 }
 
@@ -719,20 +708,20 @@ body {
   color: #5c5c5c !important;
 }
 
-/* Dropdown open — true-black iOS-style panel (both “create yours” & nav sign-in) */
+/* Dropdown open — true-black panel (both “create yours” & nav sign-in) */
 .signup-widget-shell--dropdown-open {
-  border-radius: 1.625rem !important;
+  border-radius: 1.125rem !important;
   background: #030303 !important;
   border-color: rgba(255, 255, 255, 0.12) !important;
   color: #fafafa !important;
-  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.75),
+  box-shadow: 0 18px 48px -16px rgba(0, 0, 0, 0.65),
     0 0 0 1px rgba(255, 255, 255, 0.07) inset !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
 
 .signup-widget-shell--dropdown-open.signup-widget-shell--expanded {
-  box-shadow: 0 28px 70px -22px rgba(0, 0, 0, 0.82),
+  box-shadow: 0 22px 56px -18px rgba(0, 0, 0, 0.72),
     0 0 0 1px rgba(255, 255, 255, 0.08) inset !important;
 }
 

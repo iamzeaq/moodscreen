@@ -25,6 +25,7 @@ import {
   canAttemptSave,
   recordSuccessfulSave,
 } from "../lib/moodscreenRateLimit.js";
+import { isActiveWithin48h } from "../lib/profileUtils.js";
 import { sanitizeMoodEntries } from "../lib/moodscreenValidation.js";
 import { captureMoodscreenCardToPngBlob } from "../lib/captureMoodscreenCard.js";
 
@@ -145,7 +146,7 @@ const DEFAULT_FORM = {
 const MoodscreenContext = createContext(null);
 
 export function MoodscreenProvider({ children }) {
-  const { user, sessionReady, authVersion } = useAuth();
+  const { user, sessionReady, authVersion, profile } = useAuth();
 
   const [name, setName] = useState(DEFAULT_FORM.name);
   const [location, setLocation] = useState(DEFAULT_FORM.location);
@@ -513,10 +514,13 @@ export function MoodscreenProvider({ children }) {
       location: (location || "").trim(),
       moodRows,
       footerText: "",
-      activeWithin48h: true,
+      activeWithin48h:
+        user?.id && profile?.last_active
+          ? isActiveWithin48h(profile.last_active)
+          : true,
       darkMode: cardDarkMode !== false,
     }),
-    [name, initials, avatarUrl, location, moodRows, cardDarkMode],
+    [name, initials, avatarUrl, location, moodRows, cardDarkMode, user?.id, profile?.last_active],
   );
 
   const value = useMemo(

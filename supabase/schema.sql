@@ -57,3 +57,39 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW
   EXECUTE PROCEDURE public.handle_new_user ();
+
+-- Public profile slug + presence (optional; app creates row on first login)
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users (id) ON DELETE CASCADE,
+  username TEXT UNIQUE,
+  location TEXT,
+  last_active TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS profiles_username_idx ON public.profiles (username)
+WHERE
+  username IS NOT NULL;
+
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "profiles_select_own_or_public" ON public.profiles FOR SELECT
+  USING (auth.uid () = id OR username IS NOT NULL);
+
+CREATE POLICY "profiles_insert_own" ON public.profiles FOR INSERT
+  WITH CHECK (auth.uid () = id);
+
+CREATE POLICY "profiles_update_own" ON public.profiles FOR UPDATE
+  USING (auth.uid () = id);
+
+-- Public moodscreen cards: readable when owner has chosen a username
+CREATE POLICY "moodscreens_select_public_profile" ON public.moodscreens FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.profiles p
+      WHERE
+        p.id = moodscreens.user_id
+        AND p.username IS NOT NULL
+    )
+  );
