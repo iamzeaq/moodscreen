@@ -7,6 +7,30 @@
 const CARD_FONT =
   '-apple-system, BlinkMacSystemFont, "Inter", sans-serif';
 
+/** Display + href for subtle profile link (export-safe; lives inside #moodscreen-card) */
+function getPublicSiteParts() {
+  const raw =
+    typeof import.meta !== "undefined" && typeof import.meta.env?.VITE_PUBLIC_SITE_URL === "string"
+      ? import.meta.env.VITE_PUBLIC_SITE_URL.trim()
+      : "";
+  let base = "https://moodscreen.live";
+  if (raw) {
+    try {
+      const u = raw.startsWith("http") ? raw : `https://${raw}`;
+      base = new URL(u).origin.replace(/\/$/, "");
+    } catch {
+      /* keep default */
+    }
+  }
+  let host = "moodscreen.live";
+  try {
+    host = new URL(base).hostname.replace(/^www\./, "");
+  } catch {
+    /* keep */
+  }
+  return { base, host };
+}
+
 /** Legacy "emoji label: quote" strings → structured rows */
 function parseLegacyMoodLines(moodLines) {
   if (!Array.isArray(moodLines)) return [];
@@ -43,6 +67,8 @@ export default function StatusCard({
   darkMode = true,
   /** Studio preview only — sets id for PNG export target (inner article) */
   isExportTarget = false,
+  /** Public profile slug — shows `→ host/slug` when set (e.g. from profile or /:username) */
+  profileUsername = null,
 }) {
   const displayInitials = initials ?? (name || "?").slice(0, 2).toUpperCase();
 
@@ -69,6 +95,19 @@ export default function StatusCard({
     : "text-[16px] font-medium leading-[1.45] text-[rgba(0,0,0,0.9)]";
 
   const hasFooter = Boolean((footerText || "").trim());
+
+  const identitySlug =
+    typeof profileUsername === "string" && profileUsername.trim()
+      ? profileUsername.trim().toLowerCase()
+      : "";
+
+  let identityHref = "";
+  let identityHost = "moodscreen.live";
+  if (identitySlug) {
+    const { base, host } = getPublicSiteParts();
+    identityHref = `${base}/${encodeURIComponent(identitySlug)}`;
+    identityHost = host;
+  }
 
   let resolvedRows = [];
   if (Array.isArray(moodRows) && moodRows.length) {
@@ -174,6 +213,14 @@ export default function StatusCard({
             moodscreen.live
           </a>
         </div>
+
+        {identitySlug ? (
+          <div className="moodscreen-link">
+            <a href={identityHref} target="_blank" rel="noopener noreferrer">
+              → {identityHost}/{identitySlug}
+            </a>
+          </div>
+        ) : null}
 
         {hasFooter ? (
           <p

@@ -51,6 +51,7 @@ export default function PublicProfilePage() {
         footerText: "",
         activeWithin48h: isActiveWithin48h(profile.last_active),
         darkMode: normalized.cardDarkMode !== false,
+        profileUsername: profile.username,
       });
       setLoading(false);
     };

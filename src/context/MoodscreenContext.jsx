@@ -519,8 +519,12 @@ export function MoodscreenProvider({ children }) {
           ? isActiveWithin48h(profile.last_active)
           : true,
       darkMode: cardDarkMode !== false,
+      profileUsername:
+        typeof profile?.username === "string" && profile.username.trim()
+          ? profile.username.trim().toLowerCase()
+          : undefined,
     }),
-    [name, initials, avatarUrl, location, moodRows, cardDarkMode, user?.id, profile?.last_active],
+    [name, initials, avatarUrl, location, moodRows, cardDarkMode, user?.id, profile?.last_active, profile?.username],
   );
 
   const value = useMemo(

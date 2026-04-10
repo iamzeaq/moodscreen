@@ -819,6 +819,21 @@ body {
   min-width: 0;
 }
 
+/* Subtle identity signature — included in PNG export (inside #moodscreen-card) */
+.status-card-ios .moodscreen-link {
+  margin-top: 16px;
+  font-size: 12px;
+  opacity: 0.4;
+  text-align: center;
+  font-weight: 400;
+}
+
+.status-card-ios .moodscreen-link a {
+  color: inherit;
+  text-decoration: none;
+  font-weight: 400;
+}
+
 .status-card-ios .mood-text,
 .status-card-ios .mood-category,
 .status-card-ios .mood-location,
