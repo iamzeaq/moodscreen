@@ -27,7 +27,7 @@ export default function OnboardingGate() {
 
   useEffect(() => {
     if (!sessionReady || profileLoading) return;
-    if (!isSupabaseConfigured() || !user?.id) return;
+    if (!isSupabaseConfigured || !user?.id) return;
 
     if (profile?.username) {
       if (pathname === "/onboarding") {

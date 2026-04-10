@@ -19,7 +19,7 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     if (!sessionReady || profileLoading) return;
-    if (!isSupabaseConfigured() || !user?.id) {
+    if (!isSupabaseConfigured || !user?.id) {
       navigate("/", { replace: true });
     }
   }, [sessionReady, profileLoading, user?.id, isSupabaseConfigured, navigate]);
@@ -28,7 +28,7 @@ export default function OnboardingPage() {
     return <div className="min-h-dvh bg-surface" aria-hidden />;
   }
 
-  if (!isSupabaseConfigured() || !user?.id) {
+  if (!isSupabaseConfigured || !user?.id) {
     return <div className="min-h-dvh bg-surface" aria-hidden />;
   }
 
