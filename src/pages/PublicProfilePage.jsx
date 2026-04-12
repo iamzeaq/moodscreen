@@ -86,6 +86,13 @@ export default function PublicProfilePage() {
           ← Home
         </Link>
         <StatusCard {...card} />
+        <div className="cta-section">
+          <p className="cta-text">your turn</p>
+          <Link to="/create" className="cta-button">
+            create your moodscreen
+          </Link>
+          <p className="cta-subtext">takes 10 seconds</p>
+        </div>
       </div>
     </div>
   );

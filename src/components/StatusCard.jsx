@@ -101,13 +101,11 @@ export default function StatusCard({
       ? profileUsername.trim().toLowerCase()
       : "";
 
-  let identityHref = "";
-  let identityHost = "moodscreen.live";
-  if (identitySlug) {
-    const { base, host } = getPublicSiteParts();
-    identityHref = `${base}/${encodeURIComponent(identitySlug)}`;
-    identityHost = host;
-  }
+  const { base, host } = getPublicSiteParts();
+  const brandHref = identitySlug
+    ? `${base}/${encodeURIComponent(identitySlug)}`
+    : base;
+  const brandLabel = identitySlug ? `${host}/${identitySlug}` : host;
 
   let resolvedRows = [];
   if (Array.isArray(moodRows) && moodRows.length) {
@@ -198,29 +196,12 @@ export default function StatusCard({
           )}
         </div>
 
-        {/* Brand watermark — always moodscreen.live, centered */}
-        <div className="mt-3 flex justify-center pt-0.5">
-          <a
-            href="https://moodscreen.live"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={
-              darkMode
-                ? "select-none text-center text-[0.65rem] font-medium tracking-[0.12em] text-white/32 transition-colors hover:text-white/45"
-                : "select-none text-center text-[0.65rem] font-medium tracking-[0.12em] text-neutral-400 transition-colors hover:text-neutral-500"
-            }
-          >
-            moodscreen.live
+        {/* Single brand line: host/username when slug set, else site host only (demos) */}
+        <div className="moodscreen-link mt-3 pt-0.5">
+          <a href={brandHref} target="_blank" rel="noopener noreferrer">
+            {brandLabel}
           </a>
         </div>
-
-        {identitySlug ? (
-          <div className="moodscreen-link">
-            <a href={identityHref} target="_blank" rel="noopener noreferrer">
-              → {identityHost}/{identitySlug}
-            </a>
-          </div>
-        ) : null}
 
         {hasFooter ? (
           <p
