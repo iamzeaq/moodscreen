@@ -1,23 +1,9 @@
 @import "tailwindcss";
-@import "./design-system.css";
-@import "./micro-graphics.css";
 
-/* Stable mobile layout — no horizontal rubber-banding / stray sideways scroll */
-html {
-  overflow-x: hidden;
-  max-width: 100%;
-}
+/* Tokens first — everything below reads from them. */
+@import "./tokens.css";
+@import "./fonts.css";
+@import "./base.css";
 
-body {
-  overflow-x: hidden;
-  max-width: 100%;
-  overscroll-behavior-x: none;
-  /* Vertical scroll + pinch zoom; block horizontal page panning */
-  touch-action: pan-y pinch-zoom;
-}
-
-#root {
-  overflow-x: hidden;
-  max-width: 100%;
-  min-height: 100dvh;
-}
+/* Pre-redesign page CSS. Delete when its last consumer goes. */
+@import "./legacy.css";

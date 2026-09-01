@@ -1,0 +1,54 @@
+/**
+ * Self-hosted faces — CLAUDE.md §4.
+ *
+ * Both families are subset woff2 served from our own origin. There is no
+ * Google Fonts link anywhere in this project and there must never be one:
+ * html-to-image cannot embed a cross-origin stylesheet, so a CDN face
+ * silently becomes Arial in the exported PNG.
+ *
+ * Files are produced by `npm run build:fonts` (scripts/build-fonts.mjs).
+ */
+
+/* ---------- Switzer — interface ---------- */
+
+@font-face {
+  font-family: "Switzer";
+  src: url("/fonts/Switzer-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Switzer";
+  src: url("/fonts/Switzer-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Switzer";
+  src: url("/fonts/Switzer-600.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Switzer";
+  src: url("/fonts/Switzer-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ---------- Instrument Serif — display, `classic` theme ---------- */
+
+@font-face {
+  font-family: "Instrument Serif";
+  src: url("/fonts/InstrumentSerif-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}

@@ -9,7 +9,9 @@
     "dev": "vite",
     "start": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:fonts": "node scripts/build-fonts.mjs",
+    "build:grain": "node scripts/build-grain.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
@@ -23,6 +25,7 @@
     "@vitejs/plugin-react": "^5.0.0",
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.6",
+    "subset-font": "^2.7.0",
     "tailwindcss": "^4",
     "vite": "^7.0.0"
   }

@@ -24,11 +24,9 @@ function CardDarkModeSwitch({ checked, onChange, labelledBy }) {
       onClick={() => onChange(!checked)}
       className={[
         "ios-card-switch relative h-8 w-[52px] shrink-0 cursor-pointer select-none rounded-full p-[3px] touch-manipulation",
-        "transition-[background-color] duration-300 ease-out active:brightness-[0.97]",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8e977d]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--app-card)]",
-        checked
-          ? "bg-[#8e977d] shadow-[inset_0_1px_2px_rgba(0,0,0,0.12)]"
-          : "bg-[#e2ddd4]",
+        "transition-[background-color] duration-[var(--dur-state)] ease-brand",
+        "outline-none focus-visible:outline-2 focus-visible:outline-accent-ring focus-visible:outline-offset-2",
+        checked ? "bg-accent" : "bg-panel",
       ].join(" ")}
     >
       <span

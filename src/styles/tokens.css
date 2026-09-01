@@ -1,0 +1,293 @@
+/**
+ * moodscreen — the token layer.
+ *
+ * This file is the only place a raw value is allowed to appear. Everything
+ * else in the project is Tailwind utilities pointed at these variables.
+ * Values are transcribed from CLAUDE.md §§3–6; if the two ever disagree,
+ * CLAUDE.md wins.
+ *
+ * Two halves:
+ *   1. `:root` — the literal tokens, readable from plain CSS and from JS.
+ *   2. `@theme` — the same tokens registered with Tailwind v4 so utilities
+ *      (`bg-canvas`, `text-muted`, `text-34`, `rounded-lg`) exist.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* ---------- Canvas (§3) ---------------------------------------------
+   * The site is a gallery wall. Ten saturated mood colours need somewhere
+   * quiet to sit, so the chrome carries almost no hue of its own.
+   * Never pure #000 — it smears on OLED during scroll and leaves nothing
+   * darker for depth. */
+  --canvas: #08080a;
+  --raised: #101013;
+  --panel: #17171b;
+  --overlay: #1f1f24;
+
+  /* ---------- Text (§3) — never pure white on near-black -------------- */
+  --text: #f2f2f4;
+  --text-muted: #a0a0a8;
+  --text-faint: #66666e;
+
+  /* ---------- Borders (§3) — alpha, so they adapt to the surface behind */
+  --line: rgb(255 255 255 / 0.06);
+  --line-strong: rgb(255 255 255 / 0.11);
+
+  /* ---------- Accent (§3) — dynamic, not fixed ------------------------
+   * There is no fixed brand accent. The accent is the mood colour
+   * currently in focus. `accentVars()` in src/lib/color.js rewrites this
+   * whole set; the values below are the default before any mood is chosen.
+   * Hover and press are lightness moves in OKLCH, not opacity — opacity
+   * muddies against a dark canvas. */
+  --accent: #8b7bff;
+  --accent-hover: #a294ff;
+  --accent-press: #7361f0;
+  --accent-tint: rgb(139 123 255 / 0.14);
+  --accent-ring: rgb(139 123 255 / 0.4);
+  --accent-ink: #2a2260;
+
+  /* ---------- Danger -------------------------------------------------
+   * Not in CLAUDE.md. Validation has to signal failure and the accent is
+   * whatever mood is in focus, so it cannot carry that meaning. Kept out of
+   * the mood spectrum deliberately: this is chrome, never a card fill. */
+  --danger: #ff5a5f;
+  --danger-tint: rgb(255 90 95 / 0.14);
+
+  /* ---------- Mood spectrum (§3) — Moodscreens only -------------------
+   * These never appear in site chrome except as the dynamic accent above.
+   * Each mood declares an `ink`: a very dark tone from its own hue family,
+   * used for all text on that Moodscreen. Never black, never white. */
+  --mood-building: #ff8a00;
+  --ink-building: #4a2c05;
+  --mood-creating: #ff5fa2;
+  --ink-creating: #4e1330;
+  --mood-coding: #00c08b;
+  --ink-coding: #05392a;
+  --mood-hiring: #ffd029;
+  --ink-hiring: #4a3703;
+  --mood-thinking: #8b7bff;
+  --ink-thinking: #221c55;
+  --mood-available: #2ed47a;
+  --ink-available: #0b3d22;
+  --mood-speaking: #ff4d6d;
+  --ink-speaking: #4c0e1c;
+  --mood-learning: #00bfc7;
+  --ink-learning: #04383b;
+  --mood-traveling: #3da5f5;
+  --ink-traveling: #0a2e4a;
+  --mood-offline: #6e7480;
+  --ink-offline: #1b1f28;
+
+  /* ---------- Type (§4) ------------------------------------------------
+   * Two families, both self-hosted. Display is per theme; `classic` uses
+   * Instrument Serif. Inter is banned — it is the loudest signal of a
+   * default build.
+   *
+   * `--font-ui` and `--font-display` are declared in the @theme block below
+   * rather than here — Tailwind emits @theme onto :root too, so declaring
+   * them in both places would make each one reference itself. */
+
+  /* Explicit scale, not multiplied. */
+  --fs-11: 11px;
+  --fs-12: 12px;
+  --fs-13: 13px;
+  --fs-15: 15px;
+  --fs-18: 18px;
+  --fs-24: 24px;
+  --fs-34: 34px;
+  --fs-48: 48px;
+  --fs-64: 64px;
+
+  /* Optical tracking, by size. Large type at default tracking is an
+   * immediate tell. These are baked into the `text-*` utilities below, so
+   * you almost never set tracking by hand. */
+  --track-tight: -0.03em; /* >= 48px */
+  --track-snug: -0.02em; /* 34px */
+  --track-slight: -0.01em; /* 18-24px */
+  --track-none: 0; /* 13-15px */
+  --track-wide: 0.01em; /* 11-12px */
+
+  --lh-display: 1.05;
+  --lh-statement: 1.25;
+  --lh-body: 1.55;
+
+  /* ---------- Spacing (§5) — 4px base ---------------------------------
+   * The whole scale, and nothing between the steps. Tailwind's `p-1 p-2
+   * p-3 p-4 p-6 p-8 p-12 p-16 p-24 p-32` map onto exactly these. */
+  --s-4: 4px;
+  --s-8: 8px;
+  --s-12: 12px;
+  --s-16: 16px;
+  --s-24: 24px;
+  --s-32: 32px;
+  --s-48: 48px;
+  --s-64: 64px;
+  --s-96: 96px;
+  --s-128: 128px;
+
+  /* ---------- Radius (§5) ---------------------------------------------
+   * Nested radii: inner = outer - padding between them. One radius on
+   * every element regardless of hierarchy is an anti-pattern. */
+  --r-sm: 6px; /* inputs, pills */
+  --r-md: 10px; /* buttons */
+  --r-lg: 16px; /* Moodscreens, panels */
+
+  /* ---------- Motion (§6) — four durations, nothing else --------------
+   * Animate transform and opacity only; anything else drops frames on
+   * mid-range Android. Never `transition: all`, never `hover:scale`. */
+  --dur-hover: 120ms;
+  --dur-state: 180ms;
+  --dur-enter: 240ms;
+  --dur-layout: 320ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+
+  /* ---------- Layout (§5) ---------------------------------------------- */
+  --content-max: 1120px;
+
+  /* ---------- Texture (§7) --------------------------------------------
+   * A PNG tile, never an SVG filter — html-to-image does not reliably
+   * capture SVG filters, so filter-based grain vanishes from exports. */
+  --grain-url: url("/textures/grain.png");
+  --grain-size: 128px;
+  --grain-opacity: 0.07;
+}
+
+@theme {
+  /* ---------- Surfaces ---------- */
+  --color-canvas: var(--canvas);
+  --color-raised: var(--raised);
+  --color-panel: var(--panel);
+  --color-overlay: var(--overlay);
+
+  /* ---------- Text ---------- */
+  --color-fg: var(--text);
+  --color-muted: var(--text-muted);
+  --color-faint: var(--text-faint);
+
+  /* ---------- Lines ---------- */
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  /* ---------- Accent ---------- */
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-press: var(--accent-press);
+  --color-accent-tint: var(--accent-tint);
+  --color-accent-ring: var(--accent-ring);
+  --color-accent-ink: var(--accent-ink);
+
+  /* ---------- Danger ---------- */
+  --color-danger: var(--danger);
+  --color-danger-tint: var(--danger-tint);
+
+  /* ---------- Mood spectrum ---------- */
+  --color-mood-building: var(--mood-building);
+  --color-mood-creating: var(--mood-creating);
+  --color-mood-coding: var(--mood-coding);
+  --color-mood-hiring: var(--mood-hiring);
+  --color-mood-thinking: var(--mood-thinking);
+  --color-mood-available: var(--mood-available);
+  --color-mood-speaking: var(--mood-speaking);
+  --color-mood-learning: var(--mood-learning);
+  --color-mood-traveling: var(--mood-traveling);
+  --color-mood-offline: var(--mood-offline);
+
+  --color-ink-building: var(--ink-building);
+  --color-ink-creating: var(--ink-creating);
+  --color-ink-coding: var(--ink-coding);
+  --color-ink-hiring: var(--ink-hiring);
+  --color-ink-thinking: var(--ink-thinking);
+  --color-ink-available: var(--ink-available);
+  --color-ink-speaking: var(--ink-speaking);
+  --color-ink-learning: var(--ink-learning);
+  --color-ink-traveling: var(--ink-traveling);
+  --color-ink-offline: var(--ink-offline);
+
+  /* ---------- Families ---------- */
+  --font-ui: "Switzer", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Instrument Serif", ui-serif, Georgia, serif;
+
+  /* ---------- Type scale, with tracking and leading attached ----------
+   * `text-34` carries -0.02em without anyone remembering to add it. */
+  --text-11: 11px;
+  --text-11--letter-spacing: 0.01em;
+  --text-11--line-height: var(--lh-body);
+
+  --text-12: 12px;
+  --text-12--letter-spacing: 0.01em;
+  --text-12--line-height: var(--lh-body);
+
+  --text-13: 13px;
+  --text-13--letter-spacing: 0;
+  --text-13--line-height: var(--lh-body);
+
+  --text-15: 15px;
+  --text-15--letter-spacing: 0;
+  --text-15--line-height: var(--lh-body);
+
+  --text-18: 18px;
+  --text-18--letter-spacing: -0.01em;
+  --text-18--line-height: var(--lh-statement);
+
+  --text-24: 24px;
+  --text-24--letter-spacing: -0.01em;
+  --text-24--line-height: var(--lh-statement);
+
+  --text-34: 34px;
+  --text-34--letter-spacing: -0.02em;
+  --text-34--line-height: var(--lh-statement);
+
+  --text-48: 48px;
+  --text-48--letter-spacing: -0.03em;
+  --text-48--line-height: var(--lh-display);
+
+  --text-64: 64px;
+  --text-64--letter-spacing: -0.03em;
+  --text-64--line-height: var(--lh-display);
+
+  /* ---------- Radius ---------- */
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+
+  /* ---------- Motion ---------- */
+  --ease-brand: var(--ease);
+  --default-transition-duration: var(--dur-state);
+  --default-transition-timing-function: var(--ease);
+
+  /* Preflight's element default. Set explicitly rather than via the legacy
+   * `--font-sans` alias, which Tailwind tree-shakes when nothing uses it. */
+  --default-font-family: var(--font-ui);
+
+  /* ---------- Layout ---------- */
+  --container-content: var(--content-max);
+
+  /* --------------------------------------------------------------------
+   * LEGACY ALIASES — delete with src/styles/legacy.css.
+   *
+   * Pre-redesign components still reach for `bg-surface`, `text-primary`,
+   * `border-border`, `rounded-card` and friends. Rather than leave a second
+   * palette alive next to this one, those names now resolve to the tokens
+   * above, so there is exactly one source of colour in the project. They
+   * die as sessions 3-5 replace the components that use them.
+   * ------------------------------------------------------------------ */
+  --color-surface: var(--canvas);
+  --color-surface-elevated: var(--raised);
+  --color-card: var(--raised);
+  --color-card-hover: var(--panel);
+  --color-border: var(--line);
+  --color-border-focus: var(--line-strong);
+  --color-primary: var(--text);
+  --color-secondary: var(--text-muted);
+  --color-meta: var(--text-muted);
+  --color-placeholder: var(--text-faint);
+  --color-accent-muted: var(--text-muted);
+
+  --radius-card: var(--r-lg);
+  --radius-card-sm: var(--r-md);
+  --radius-input: var(--r-sm);
+  --radius-pill: 9999px;
+
+  --font-sans: var(--font-ui);
+}

@@ -1,0 +1,86 @@
+/**
+ * Base layer — the handful of element-level rules that cannot be a utility.
+ * Everything else belongs in Tailwind classes on the component.
+ */
+
+html {
+  overflow-x: hidden;
+  max-width: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+  /* Vertical scroll + pinch zoom; block horizontal page panning */
+  touch-action: pan-y pinch-zoom;
+
+  background-color: var(--canvas);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: var(--fs-15);
+  line-height: var(--lh-body);
+  font-feature-settings: "kern" 1, "liga" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+#root {
+  max-width: 100%;
+  overflow-x: hidden;
+  min-height: 100dvh;
+}
+
+::selection {
+  background: var(--accent-tint);
+  color: var(--text);
+}
+
+/**
+ * The grain layer (CLAUDE.md §7, texture move 1).
+ *
+ * A tiled PNG at 7% — not an SVG filter, which html-to-image drops from
+ * exports. Mounted once at the app root, fixed to the viewport so it does not
+ * swim during scroll, `pointer-events: none` so it can never intercept a tap,
+ * and pinned at z-index 1 so it sits over page content but under every
+ * interactive layer (menus at z-80, modals at z-100).
+ *
+ * Never on buttons, inputs or nav — the moment texture touches a control it
+ * stops reading as craft.
+ */
+.grain-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background-image: var(--grain-url);
+  background-repeat: repeat;
+  background-size: var(--grain-size) var(--grain-size);
+  opacity: var(--grain-opacity);
+  /* Never animated. Promoting it once keeps it off the paint path. */
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/**
+ * Motion budget (CLAUDE.md §6).
+ *
+ * Under reduced motion the mood cross-fade and the digit roll survive as
+ * instant swaps, and the breathing dot and the scroll-linked hero stop
+ * entirely — which is what collapsing every duration to nothing produces, so
+ * one blanket rule covers all four moments. Anything scroll-linked has to
+ * disable itself in JS as well; CSS cannot see a scroll timeline it never
+ * started.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

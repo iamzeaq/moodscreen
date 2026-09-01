@@ -1,0 +1,695 @@
+/**
+ * LEGACY — scheduled for deletion.
+ *
+ * Everything here belongs to the pre-redesign pages (Hero, GeneratorPanel,
+ * SignupWidget, FinalCTABento, StatusForm, MicroDecor, the marquee, the
+ * public profile). Sessions 3-5 replace those components; when the last
+ * consumer goes, delete this file and the LEGACY block at the bottom of
+ * tokens.css with it.
+ *
+ * What was removed on the way in:
+ *   - the second `@theme` block               -> tokens.css
+ *   - the light and dark `--app-*` palettes    -> aliased below onto tokens
+ *   - the Color Hunt brown / sage accents      -> there is no fixed accent
+ *   - the Inter and Sora stacks                -> Switzer
+ *   - the shared soft-grey panel shadow        -> dark UI gets depth from a
+ *                                                 one-pixel light edge
+ *   - `.ds-*` text, spacing and card classes   -> now thin token shims; the
+ *                                                 replacements are Tailwind
+ *
+ * Nothing in here is a token. Do not add to it.
+ */
+
+/* Old semantic names, pointed at the real tokens so there is one palette. */
+:root {
+  --app-surface: var(--canvas);
+  --app-surface-elevated: var(--raised);
+  --app-card: var(--raised);
+  --app-card-hover: var(--panel);
+  --app-border: var(--line);
+  --app-border-focus: var(--line-strong);
+  --app-card-inner-highlight: inset 0 1px 0 0 rgb(255 255 255 / 0.28);
+  --app-text-primary: var(--text);
+  --app-text-secondary: var(--text-muted);
+  --app-text-meta: var(--text-muted);
+  --app-text-placeholder: var(--text-faint);
+  --app-accent: var(--accent);
+  --app-accent-soft: var(--accent-tint);
+}
+
+/* ============== Enter animations still referenced by the old editor ====== */
+
+@keyframes mood-suggest-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mood-suggest-panel {
+  animation: mood-suggest-in var(--dur-enter) var(--ease);
+}
+
+@keyframes mood-picker-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mood-picker-panel {
+  animation: mood-picker-enter var(--dur-enter) var(--ease);
+}
+
+@keyframes mood-slot-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes mood-slot-leave {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+}
+
+.mood-slot-enter {
+  animation: mood-slot-enter var(--dur-enter) var(--ease) both;
+}
+
+.mood-slot-leave {
+  animation: mood-slot-leave var(--dur-state) var(--ease) forwards;
+}
+
+/* ============== `.ds-*` shims — Tailwind replaces these ================== */
+@layer components {
+  .ds-card,
+  .ds-card-static {
+    background-color: var(--raised);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
+    transition: background-color var(--dur-hover) var(--ease),
+      border-color var(--dur-hover) var(--ease);
+  }
+  .ds-card:hover {
+    background-color: var(--panel);
+    border-color: var(--line-strong);
+  }
+  .ds-card-sm {
+    border-radius: var(--r-md);
+  }
+
+  .ds-title-lg {
+    font-size: var(--fs-34);
+    font-weight: 600;
+    letter-spacing: var(--track-snug);
+    line-height: var(--lh-statement);
+    color: var(--text);
+  }
+  .ds-title {
+    font-size: var(--fs-18);
+    font-weight: 600;
+    letter-spacing: var(--track-slight);
+    line-height: var(--lh-statement);
+    color: var(--text);
+  }
+  .ds-title-sm {
+    font-size: var(--fs-15);
+    font-weight: 600;
+    letter-spacing: var(--track-none);
+    line-height: var(--lh-statement);
+    color: var(--text);
+  }
+  .ds-label {
+    font-size: var(--fs-13);
+    font-weight: 500;
+    line-height: var(--lh-body);
+    color: var(--text-muted);
+  }
+  .ds-body {
+    font-size: var(--fs-15);
+    font-weight: 400;
+    line-height: var(--lh-body);
+    color: var(--text-muted);
+  }
+  .ds-meta {
+    font-size: var(--fs-12);
+    font-weight: 400;
+    letter-spacing: var(--track-wide);
+    line-height: var(--lh-body);
+    color: var(--text-muted);
+  }
+
+  .ds-stack-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-48);
+  }
+  .ds-stack-block {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-24);
+  }
+  .ds-stack-inline {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-16);
+  }
+  .ds-inset-card {
+    padding: var(--s-24);
+  }
+  .ds-inset-card-sm {
+    padding: var(--s-16);
+  }
+
+  .ds-input {
+    width: 100%;
+    background-color: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    color: var(--text);
+    font-size: var(--fs-15);
+    font-weight: 400;
+    padding: 0 var(--s-12);
+    min-height: 44px;
+    transition: border-color var(--dur-hover) var(--ease),
+      background-color var(--dur-hover) var(--ease);
+  }
+  .ds-input::placeholder {
+    color: var(--text-faint);
+  }
+  .ds-input:hover:not(:focus) {
+    border-color: var(--line-strong);
+  }
+  .ds-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    background-color: var(--accent-tint);
+  }
+
+  .ds-pill {
+    border-radius: 9999px;
+    border: 1px solid var(--line);
+    background-color: var(--raised);
+    font-size: var(--fs-12);
+    letter-spacing: var(--track-wide);
+    font-weight: 500;
+    color: var(--text-muted);
+    padding: var(--s-4) var(--s-12);
+  }
+}
+
+/* ============== Old landing sections ==================================== */
+
+.hero-section {
+  background-color: var(--canvas);
+}
+
+.generator-panel.generator-zone {
+  position: relative;
+  isolation: isolate;
+  background-color: var(--canvas);
+}
+
+.generator-panel.generator-zone::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.85;
+  background-image: linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 52px 52px;
+  mask-image: radial-gradient(ellipse 88% 70% at 50% 32%, black 0%, transparent 70%);
+  -webkit-mask-image: radial-gradient(ellipse 88% 70% at 50% 32%, black 0%, transparent 70%);
+}
+
+.generator-panel-inner {
+  position: relative;
+  z-index: 1;
+}
+
+.generator-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 var(--s-16);
+  border-radius: var(--r-md);
+  font-size: var(--fs-13);
+  font-weight: 600;
+  letter-spacing: var(--track-none);
+  transition: background-color var(--dur-hover) var(--ease),
+    color var(--dur-hover) var(--ease), border-color var(--dur-hover) var(--ease),
+    opacity var(--dur-hover) var(--ease), transform 80ms var(--ease);
+}
+
+.generator-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.generator-btn:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+.generator-btn:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 2px;
+}
+
+.generator-btn-primary {
+  background-color: var(--accent);
+  color: var(--accent-ink);
+  border: 1px solid transparent;
+}
+
+.generator-btn-primary:hover:not(:disabled) {
+  background-color: var(--accent-hover);
+}
+
+.generator-btn-ghost {
+  background-color: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--line);
+}
+
+.generator-btn-ghost:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+.generator-preview-rim,
+.generator-preview-rim--light {
+  border-radius: var(--r-lg);
+  padding: var(--s-16);
+  background: var(--raised);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
+}
+
+/* Bento stat figures — Switzer, tabular. */
+.bento-stat-card {
+  container-type: inline-size;
+  min-width: 0;
+}
+
+.bento-stat-figure {
+  font-family: var(--font-ui);
+  font-feature-settings: "tnum" 1, "lnum" 1;
+  font-weight: 600;
+  letter-spacing: var(--track-tight);
+  line-height: var(--lh-display);
+}
+
+.bento-stat-figure--tall {
+  font-size: clamp(2.35rem, 1.1rem + 11cqi, 5.35rem);
+}
+
+.bento-stat-figure--compact {
+  font-size: clamp(2rem, 0.65rem + 9cqi, 3.95rem);
+}
+
+.bento-stat-caption {
+  font-family: var(--font-ui);
+  font-size: var(--fs-12);
+  font-weight: 500;
+  line-height: var(--lh-body);
+  letter-spacing: var(--track-wide);
+}
+
+/* ============== Floating background icons (hero-only) =================== */
+
+.fb-float {
+  animation-name: fb-float;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+.fb-spin {
+  animation-name: fb-float, fb-spin;
+  animation-timing-function: ease-in-out, linear;
+  animation-iteration-count: infinite, infinite;
+  animation-duration: inherit, calc((var(--fb-spin, 1)) * 48s);
+}
+
+@keyframes fb-float {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(var(--fb-dx, 24px), var(--fb-dy, -24px), 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes fb-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============== Horizontal marquee ====================================== */
+
+.moodscreen-marquee-shell {
+  position: relative;
+  overflow: hidden;
+  padding: var(--s-48) 0;
+}
+
+.moodscreen-marquee-track {
+  display: flex;
+  align-items: center;
+  width: max-content;
+  gap: var(--s-24);
+  will-change: transform;
+}
+
+.moodscreen-marquee-track-left {
+  animation: moodscreen-marquee-left linear infinite;
+}
+
+.moodscreen-marquee-track-right {
+  animation: moodscreen-marquee-right linear infinite;
+}
+
+@keyframes moodscreen-marquee-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-50% - var(--s-12)));
+  }
+}
+
+@keyframes moodscreen-marquee-right {
+  from {
+    transform: translateX(calc(-50% - var(--s-12)));
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+/* ============== Signup widget =========================================== */
+
+.signup-widget-shell {
+  min-width: min(100%, 13.5rem);
+}
+
+.signup-widget-shell--guest:not(.signup-widget-shell--expanded) {
+  min-width: min(100%, 10.75rem);
+}
+
+.signup-widget-shell--gradient-cta.signup-widget-shell--guest:not(.signup-widget-shell--expanded) {
+  min-width: min(100%, 12rem);
+  border-color: transparent !important;
+  background: var(--accent) !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.28) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.signup-widget-shell--gradient-cta.signup-widget-shell--guest:not(.signup-widget-shell--expanded):hover:not(
+    .signup-widget-shell--pressed
+  ) {
+  background: var(--accent-hover) !important;
+}
+
+.signup-widget-shell--gradient-cta.signup-widget-shell--guest:not(.signup-widget-shell--expanded).signup-widget-shell--pressed {
+  transform: translateY(1px);
+}
+
+.signup-widget-shell--gradient-cta.signup-widget-shell--guest:not(.signup-widget-shell--expanded)
+  .signup-widget-trigger,
+.signup-widget-shell--gradient-cta.signup-widget-shell--guest:not(.signup-widget-shell--expanded)
+  .signup-widget-label {
+  color: var(--accent-ink) !important;
+}
+
+.signup-widget-shell--gradient-cta.signup-widget-shell--guest:not(.signup-widget-shell--expanded)
+  .signup-widget-chevron {
+  color: var(--accent-ink) !important;
+  opacity: 0.72;
+}
+
+.signup-widget-shell--nav-account {
+  min-width: min(100%, 10.5rem);
+}
+
+.signup-widget-shell--nav-account:not(.signup-widget-shell--expanded) {
+  min-width: 0;
+  width: fit-content;
+}
+
+.signup-widget-shell--nav-account.signup-widget-shell--expanded,
+.signup-widget-shell--expanded {
+  min-width: min(100%, 16.25rem);
+}
+
+.signup-widget-shell--pressed:not(.signup-widget-shell--expanded) {
+  transform: translateY(1px);
+}
+
+/* max-height expand — avoids iOS/Safari grid 0fr->1fr clipping */
+.signup-widget-panel {
+  display: block;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height var(--dur-layout) var(--ease), opacity var(--dur-state) var(--ease);
+}
+
+.signup-widget-panel--open {
+  max-height: 24rem;
+  opacity: 1;
+}
+
+.signup-widget-panel-inner {
+  overflow: visible;
+  min-height: 0;
+}
+
+.signup-widget-shell,
+.signup-widget-shell:not(.signup-widget-shell--dropdown-open) {
+  background: var(--raised) !important;
+  border-color: var(--line) !important;
+  color: var(--text);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06) !important;
+}
+
+.signup-widget-shell--dropdown-open {
+  border-radius: var(--r-lg) !important;
+  background: var(--overlay) !important;
+  border-color: var(--line-strong) !important;
+  color: var(--text) !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.signup-widget-shell--dropdown-open .signup-widget-trigger,
+.signup-widget-shell--dropdown-open .signup-widget-label {
+  color: var(--text) !important;
+}
+
+.signup-widget-shell--dropdown-open .signup-widget-trigger .text-meta,
+.signup-widget-shell--dropdown-open .signup-widget-chevron {
+  color: var(--text-muted) !important;
+}
+
+.signup-widget-shell--dropdown-open .signup-widget-trigger:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 2px;
+}
+
+.signup-widget-action {
+  touch-action: manipulation;
+}
+
+.signup-widget-shell--dropdown-open .signup-widget-action {
+  background: var(--panel) !important;
+  border-color: var(--line) !important;
+  color: var(--text) !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06) !important;
+}
+
+.signup-widget-shell--dropdown-open .signup-widget-action:hover:not(:disabled) {
+  background: var(--overlay) !important;
+  border-color: var(--line-strong) !important;
+}
+
+.signup-widget-shell--dropdown-open .signup-widget-action .text-secondary,
+.signup-widget-shell--dropdown-open .signup-widget-actions p,
+.signup-widget-shell--dropdown-open .signup-widget-actions > button:not(.signup-widget-action) {
+  color: var(--text-muted) !important;
+}
+
+.signup-widget-shell--dropdown-open .signup-widget-actions > button:not(.signup-widget-action):hover {
+  color: var(--text) !important;
+}
+
+/* ============== StatusCard — replaced by <Moodscreen> in session 2 ======= */
+
+.status-card-root {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.status-card-ios,
+#moodscreen-card {
+  max-width: 100%;
+  overflow-x: hidden;
+  min-width: 0;
+}
+
+.status-card-ios .moodscreen-link {
+  margin-top: 0;
+  font-size: var(--fs-12);
+  opacity: 0.55;
+  text-align: center;
+  font-weight: 400;
+}
+
+.status-card-ios .moodscreen-link a {
+  color: inherit;
+  text-decoration: none;
+  font-weight: 400;
+}
+
+.status-card-ios .mood-text,
+.status-card-ios .mood-category,
+.status-card-ios .mood-location,
+.status-card-ios .mood-footer {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+  white-space: normal;
+}
+
+/* ============== Public profile CTA ====================================== */
+
+.cta-section {
+  margin-top: var(--s-48);
+  text-align: center;
+}
+
+.cta-text {
+  font-size: var(--fs-13);
+  color: var(--text-muted);
+  margin-bottom: var(--s-12);
+}
+
+.cta-button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: none;
+  padding: 0 var(--s-16);
+  border-radius: var(--r-md);
+  font-size: var(--fs-13);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color var(--dur-hover) var(--ease);
+}
+
+.cta-button:hover {
+  background: var(--accent-hover);
+}
+
+.cta-button:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 2px;
+}
+
+.cta-subtext {
+  margin-top: var(--s-8);
+  font-size: var(--fs-12);
+  color: var(--text-faint);
+}
+
+/* ============== Micro-graphics ========================================== */
+
+.ms-micro-dots,
+.ms-micro-dots--inverse {
+  background-image: radial-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+.ms-micro-mesh {
+  background-image: linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 52px 52px;
+}
+
+.ms-micro-orbs {
+  background: radial-gradient(
+      ellipse 72% 58% at 76% 10%,
+      rgb(255 255 255 / 0.035) 0%,
+      transparent 54%
+    ),
+    radial-gradient(ellipse 58% 48% at 10% 86%, rgb(255 255 255 / 0.03) 0%, transparent 52%);
+}
+
+@keyframes ms-micro-drift-slow {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(-12px, 8px);
+  }
+}
+
+.ms-micro-orbs--drift {
+  animation: ms-micro-drift-slow 32s ease-in-out infinite;
+}
+
+.ms-micro-rule {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-8);
+  color: var(--text-faint);
+}
+
+.ms-micro-rule__dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 9999px;
+  background: currentColor;
+}
+
+.ms-micro-rule__line {
+  height: 1px;
+  width: min(5rem, 28vw);
+  background: linear-gradient(90deg, transparent, currentColor, transparent);
+}
