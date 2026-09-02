@@ -290,10 +290,12 @@ decoration: violet is always thinking, red is always speaking.
 | `paper` | bone `#F4F2EC` | a darkened tone of the mood |
 
 `ink` is near-black *relative to the ground it is seen against*, not in
-absolute terms: derived from `--canvas` at +0.09 OKLCH lightness, never
+absolute terms: derived from `--canvas` at +0.15 OKLCH lightness, never
 hand-picked. A fixed near-black hex sits at 1.03:1 against the §7.8 backdrop,
 which makes the outline — the thing §7.1 calls the brand — invisible in the
-export.
+export. The bar for the lift is the `colour` surface: a mood fill reads as an
+object on the backdrop, and `ink` has to read as one too rather than as a
+slightly different black.
 
 Ten moods × three surfaces = thirty looks from two taps.
 
@@ -382,7 +384,9 @@ being blown up to 300px at 16% opacity. The face does, and it means something
 at every size.
 
 One component, three sizes: 17px in the lockup, 24px beside the mood label,
-300px as the watermark. Eyes stay fixed; only the mouth path changes per mood,
+186px as the watermark. 300px was the first figure and is over half the card's
+width — at that scale the face stops being layer 6 and starts competing with
+the statement it sits behind. Eyes stay fixed; only the mouth path changes per mood,
 so adding a mood is one path rather than a new drawing. The existing icon set
 stays in the repo for other uses.
 
@@ -531,20 +535,26 @@ only the mouth path changes per mood. Adding a mood is one path, not a new
 logo.
 
 ```
-building   M15 25 Q20 30 25 25
+building   M16 25 Q20 29.5 24 25
 thinking   M15 27 H22
-coding     M15 27 H25   (eyes become horizontal: M10 16 H19, M21 16 H30)
+coding     M15 27 H25   (eyes become horizontal: M10 12 H19, M21 12 H30)
 speaking   circle cx20 cy27 r3
-offline    M15 27 Q20 23 25 27
+offline    M16 27 Q20 23.5 24 27
 ```
 
 Stroke 3 at 40×40, `stroke-linecap: round`, `currentColor`. Bump to 3.6 below
 24px or it thins out. Favicon: fixed `thinking` mouth.
 
-Eyes are strokes, not dots, and that is a ratio, not a shape: every eye stays
-at least 3× its own stroke width at the smallest size the mark is drawn — 17px
-in the lockup, where the stroke bumps to 3.6. Vertical eyes run 12 units,
-`coding`'s horizontal pair 9.
+Eyes are strokes, not dots — but length alone does not get you there, because
+an eye must also **stop, clear of the mouth**. Vertical eyes run y 7 to 17: ten
+units, about 2.8× the stroke, ending four units above the nearest mouth. Grow
+them further and the round cap meets `building`'s mouth stroke, the two fuse,
+and the mark renders as a capital U rather than a face.
+
+For the same reason the curved mouths are inset to x 16..24 rather than §8's
+original 15..25. Ends sitting directly beneath the eyes read as one continuous
+stroke at 17px, where the gap between them is under three pixels and cannot
+argue otherwise. The straight mouths need no such help.
 
 Wordmark: `moodscreen`, lowercase, one word, tracking `-0.03em`, Switzer
 Semibold. Lock the mark's height to the wordmark's x-height, not cap height.
