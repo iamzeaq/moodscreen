@@ -242,82 +242,271 @@ as instant swaps.
 If the export path re-implements the layout, the two drift and you will be
 fixing it forever. This rule is absolute.
 
-### Theme schema
+The existing approach holds: the card lays out at one fixed size and `width`
+scales it with a transform. Only the base size changes.
 
-A theme is data, not a component:
+```
+BASE = 540 × 540    export at 3× → 1620 × 1620
+```
+
+### 7.1 The shape
+
+Not a rounded rectangle. A **screen** — edges bowing outward, corners pulled
+tight, like a Nokia or a CRT. The outline is the brand; it comes straight out
+of the product name and nothing else in this category looks like it.
+
+Draw it as one SVG path on a `0 0 400 400` viewBox and let it scale:
+
+```
+M75 20 C150 4, 250 4, 325 20 C357 27, 373 43, 380 75
+C396 150, 396 250, 380 325 C373 357, 357 373, 325 380
+C250 396, 150 396, 75 380 C43 373, 27 357, 20 325
+C4 250, 4 150, 20 75 C27 43, 43 27, 75 20 Z
+```
+
+Not CSS `border-radius` — the bow can't be expressed that way. Use the path
+as fill and as a `clipPath` for every layer inside it.
+
+Because the corners curve inward, content sits further in than on a
+rectangle: **safe area is 13% inset on all sides.**
+
+### 7.2 Two user choices
+
+Every Moodscreen is a combination of exactly two things the user picks.
+
+**Mood → colour.** Ten moods, each owning a hue. This is meaning, not
+decoration: violet is always thinking, red is always speaking.
+
+**Surface → arrangement.** Three options for how that colour appears:
+
+| Surface | Card | Text |
+|---|---|---|
+| `colour` (default) | the mood hue | a dark tone of the same hue |
+| `ink` | near-black `#0D0D10` | a lightened tone of the mood |
+| `paper` | bone `#F4F2EC` | a darkened tone of the mood |
+
+Ten moods × three surfaces = thirty looks from two taps.
+
+Surface is chosen by the **user**, not by the theme. `resolveSurface` already
+handles these three cases — move the decision out of the theme object and into
+user state.
+
+All three ink values are derived in OKLCH from the mood's base hue, never
+hand-picked. Same hue, clamped lightness. That way an eleventh mood costs
+nothing and the Pro free-hue wheel works with no extra data.
+
+### 7.3 Layers, bottom to top
+
+```
+1  surface fill        per §7.2
+2  night tint          lightness shift by hour, §7.4
+3  vignette            radial, ink at 10-14%, starting at 60% radius
+4  scanlines           horizontal, 6px pitch, 2.2px line
+5  grain               tiled PNG, 6-9%
+6  glyph watermark     mood face, cropped by the edge, 14-18%
+7  content             §7.5
+```
+
+Scanline opacity is per surface: `colour` 13%, `ink` 12%, `paper` 7%. Dark
+texture on a light field reads much stronger, so paper needs it dialled back.
+Same principle applies to the vignette.
+
+The vignette must stay invisible as an effect — if you can point at it, it's
+too strong. It exists to make the screen read as convex and to push attention
+to the middle. The grain sitting above it also dithers away the banding that
+JPEG compression would otherwise show in the corners.
+
+Grain must be a **PNG tile, not an SVG filter** — `html-to-image` does not
+reliably capture filters, so a filter-based grain vanishes from exports.
+
+### 7.4 Night tint
+
+The card's tone shifts with the hour it was posted. Same hue throughout;
+only lightness moves.
+
+```
+06:00-17:00   day       base
+17:00-22:00   evening   lightness −6%
+22:00-06:00   night     lightness −14%, ink lightened to compensate
+```
+
+A 3am thought should look like a 3am thought. This is derived from the
+timestamp already being stored, so `resolveSurface` takes the timestamp
+alongside the mood and surface.
+
+Automatic, no toggle. The card is *of a moment*; it isn't configured.
+
+### 7.5 Content
+
+Three groups, one of them loud.
+
+**Top-right:** the timestamp, mono, ink at 70%. Nothing else in the top row.
+
+**Centre, as one stack:**
+
+- Avatar, 30px circle, with the live dot tucked against it
+- Name, 12px mono, ink at 70%
+- Mood label, 13px mono, letterspaced `0.25em`, ink at 72%
+- The statement — the largest thing on the card by a wide margin
+
+The avatar is a **signature, not a header**. Keep it at 30px. A larger one
+costs the statement four points of size and makes the layout generic. In a
+story the poster's real face is already above the card in the platform's own
+chrome, so this is a mark, not a portrait.
+
+The mood label sits **directly above the statement**, never in a corner.
+Label and statement are one utterance and must read as a pair.
+
+**Bottom, centred:** the lockup — the three-stroke face mark, then
+`moodscreen` bold, then `.live/username` at 60% weight and opacity.
+
+The mark takes the card's mood. On a thinking card the little face is
+thinking; on a speaking card it's speaking. It is the same component as the
+nav logo, at 17px, with the card's ink as `currentColor`. Centred, not
+corner-aligned — corner reads as a watermark someone forgot to remove.
+
+**The mood glyph is the three-stroke face from §8**, not the icons in
+`src/components/icons/`. Those are primitive single-path geometry — `thinking`
+is a bare circle, `offline` a single straight line — and they do not survive
+being blown up to 300px at 16% opacity. The face does, and it means something
+at every size.
+
+One component, three sizes: 17px in the lockup, 24px beside the mood label,
+300px as the watermark. Eyes stay fixed; only the mouth path changes per mood,
+so adding a mood is one path rather than a new drawing. The existing icon set
+stays in the repo for other uses.
+
+### 7.6 The statement
+
+**Hard cap: 100 characters.** Five lines at the smallest step is the ceiling —
+beyond that the type drops below what survives WhatsApp's compression and
+starts crowding the lockup.
+
+`statementFit` returns an **index, not a size**:
+
+```
+≤ 20 chars  → 0
+≤ 45 chars  → 1
+≤ 75 chars  → 2
+≤ 100 chars → 3
+```
+
+The renderer reads `theme.font.scale[index]`. Short statements get *bigger* —
+this rewards punchiness without ever telling anyone to be punchy.
+
+### 7.7 Theme bundles
+
+A theme owns **type only**. Colour belongs to the mood, surface belongs to
+the user, chrome never changes. Getting this boundary right is what lets 40
+themes still look like one product.
 
 ```js
 {
-  id: 'classic',
-  tier: 'free' | 'pro',
-  font: { family, weight, scale, tracking },
-  surface: 'mood' | 'ink' | 'paper',
-  texture: 'grain' | 'none' | 'halftone',
-  glyph:   'watermark' | 'inline' | 'none',
-  radius:  16,
+  id: 'nokia',
+  name: 'Nokia',
+  tier: 'free',
+  font: {
+    family: 'Silkscreen',
+    faceFamily: 'Silkscreen',
+    weight: 400,
+    case: 'upper',
+    tracking: '0.02em',
+    lineHeight: 1.35,
+    scale: [30, 24, 18, 14],
+  },
+  texture: 'scanline' | 'glyph',
 }
 ```
 
-Adding a theme must never require touching the renderer. If it does, the
-abstraction is wrong.
+Every field is necessary because typefaces are not interchangeable:
 
-Free: `classic` (Instrument Serif), `sharp` (Clash Display).
-Pro: `terminal` (Departure Mono), `pixel` (Silkscreen), `anime` (Bebas Neue).
+- **`case`** — Silkscreen and Press Start 2P come from displays that only had
+  uppercase; caps is native to them. Instrument Serif and Bodoni depend on the
+  contrast between capitals and lowercase, so caps destroys them. Pixel and
+  mono themes uppercase; serif themes do not.
+- **`scale`** — the font-size number sets the em box, not the letters inside
+  it. Bebas Neue at 50 and Press Start 2P at 24 occupy the same space. A
+  single global ladder would overflow half the themes and shrink the rest.
 
-Pixel fonts render cleanly only at exact multiples of their design grid, so
-`pixel` carries its own size scale. This is why scale lives in the theme.
+Adding a theme is adding one object to `src/themes/`. Nobody touches the
+renderer. If a new theme requires a renderer change, the abstraction is wrong.
 
-### Layout
+**Free tier — five, one of each kind:**
 
-Portrait 4:5. Export at 3× (1080×1350).
+```
+nokia       Silkscreen        upper     [30, 24, 18, 14]
+terminal    JetBrains Mono    upper     [31, 25, 20, 16]
+impact      Bebas Neue        upper     [50, 40, 30, 24]
+classic     Instrument Serif  sentence  [46, 36, 28, 22]
+clean       Switzer           sentence  [38, 30, 24, 19]
+```
 
-Top: mood label in sentence case beside its glyph — **not** an all-caps pill.
-Middle: the statement, vertically centred, filling the space.
-Bottom: name, location, and `moodscreen.live/username`.
+Pro adds from the licence-cleared list — all OFL or Fontshare, all free to
+embed in a commercial product. Do not ship Monument Extended or Editorial New;
+those need paid licences.
 
-The URL is the growth mechanism. It must be legible at thumbnail size —
-minimum 11px at 1× and never below 45% contrast against the card. Do not
-style it as a footnote.
+Fonts are self-hosted subset woff2, loaded lazily per theme, subset to the
+characters that theme actually renders. Never a Google Fonts CDN link.
 
-Hierarchy is three clear tiers. The statement should be the only thing
-readable from across a room. Flat hierarchy is why the current card reads
-cheap — not the colour.
+### 7.8 Export
 
-**Do not join metadata with middle dots** (`name · location`). Stack it or
-space it. That pattern is a generated-page tell.
+**Two modes. The default is the one with a backdrop.**
 
-### Texture — canvas and Moodscreens only
+```
+default   1620 × 1620, screen centred on #08080A with a 7% margin
+sticker   1620 × 1620, transparent outside the screen path
+```
 
-Never on buttons, inputs, or nav. The moment texture touches a control it
-stops reading as craft and starts reading as a theme.
+The backdrop is not decoration — it is what makes the file safe. WhatsApp
+converts images to JPEG, which has no transparency, so a transparent export
+comes back with black or white blocks where the bow should be. Since sending
+to someone on WhatsApp is a core use, the safe version is the default.
 
-Maximum four texture moves per surface. Currently:
+Sticker mode is for IG and Snapchat story stickers, where transparency is
+preserved and the screen genuinely sits on the person's photo.
 
-1. **Grain** — tiled PNG at 6–9% opacity. Must be a **PNG tile, not an SVG
-   filter**: `html-to-image` does not reliably capture SVG filters, so a
-   filter-based grain vanishes from exports. `pointer-events: none`,
-   below interactive layers, never animated.
-2. **Crop marks** — 1.5px L-brackets at the four corners in the card's ink
-   at 40% alpha. Reads as a printed artifact rather than a div.
-3. **Mood glyph watermark** — the existing hand-drawn icons in
-   `src/components/icons/`, large, cropped by the card edge, 14–18% opacity
-   in ink. Cropping matters: centred glyphs look like placeholders. These
-   icons currently only decorate `FloatingBackground` — bring them forward.
-4. **Light edge** — `inset 0 1px 0 rgba(255,255,255,0.28)` on the top edge.
-   One pixel. This is how dark UI gets dimension without shadows.
+The backdrop is near-black rather than the mood colour, so a shared Moodscreen
+carries the brand surface with it and the mood stays the thing that pops.
 
-Exports get a fifth: a 3px near-white die-cut border, so a Moodscreen reads
-as a sticker when it lands on a photo in stories. Export only, never on site.
+Everything else in the existing export path stays: `document.fonts.load()` for
+the active theme family followed by `document.fonts.ready`, cached
+`getFontEmbedCSS`, pre-rendered blob on a 400ms debounce for one-tap share,
+`moodscreen-{username}.png`.
 
-### Export
+### 7.9 The picker
 
-- `await document.fonts.ready` **and** `document.fonts.load()` for the
-  active theme's family before capture. Skipping this is the single most
-  common cause of broken exports.
-- Fix the share flow. Today it needs two taps because the async render
-  breaks the user-gesture requirement. Pre-render the blob on statement
-  change so the share tap has a ready file.
-- Filename: `moodscreen-{username}.png`.
+**Mood wheel.** A ring of ten stops ordered by hue, scrubbed with a thumb. The
+centre shows the current mood's glyph and name, both changing as you scrub.
+Snap to the nearest stop with a light haptic — free-scrolling feels imprecise;
+detents feel like a dial. The card updates live during the drag, not on
+release, using the 240ms cross-fade already in the motion budget.
+
+**Surface control.** Three small squares beneath the wheel: colour, ink, paper.
+
+**Web gets a horizontal strip** instead of the wheel — same data, same
+component, different control. A wheel needs circular mouse movement and nobody
+enjoys that.
+
+**Pro: free hue.** The same wheel with `snap: false` and hue as a float. The
+ten stops become detents you feel as you pass them. Constrain lightness and
+chroma so the wheel picks only the angle — that guarantees contrast at any
+point and keeps every card looking like the same product.
+
+### 7.10 App and page
+
+The two surfaces do different jobs and must not converge.
+
+**The app** shows exactly one Moodscreen — the user's own — and two actions:
+Share, and Change it. No list, no feed, no second link. Every competitor opens
+onto a list of things; opening onto a single object you either accept or change
+is the product. It also means opening the app *is* the prompt to update.
+
+**The page** at `moodscreen.live/username` is for strangers arriving from a
+story with no context. Big avatar, name, location, the Moodscreen at a smaller
+size, `updated 20 minutes ago`, one optional link.
+
+The page must never read as static. The live dot and the relative timestamp are
+the whole difference between this and a link-in-bio page.
 
 ---
 
