@@ -405,10 +405,11 @@ export function MoodscreenProvider({ children }) {
           const node = document.getElementById(EXPORT_NODE_ID);
           if (!node || cancelled) return;
 
-          await ensureMoodscreenFontsReady(getTheme(themeId));
+          const theme = getTheme(themeId);
+          await ensureMoodscreenFontsReady(theme);
           if (cancelled) return;
 
-          const blob = await captureMoodscreenBlob(node);
+          const blob = await captureMoodscreenBlob(node, { theme });
           if (cancelled) return;
 
           const filename = exportFilename(username, name);
@@ -441,8 +442,9 @@ export function MoodscreenProvider({ children }) {
   const captureNow = useCallback(async () => {
     const node = document.getElementById(EXPORT_NODE_ID);
     if (!node) throw new Error("The Moodscreen is not ready yet.");
-    await ensureMoodscreenFontsReady(getTheme(formValueRef.current?.themeId));
-    const blob = await captureMoodscreenBlob(node);
+    const theme = getTheme(formValueRef.current?.themeId);
+    await ensureMoodscreenFontsReady(theme);
+    const blob = await captureMoodscreenBlob(node, { theme });
     const filename = exportFilename(username, formValueRef.current?.name);
     return { blob, filename };
   }, [username]);

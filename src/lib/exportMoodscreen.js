@@ -69,39 +69,60 @@ export async function ensureMoodscreenFontsReady(theme) {
 }
 
 /**
- * Embedding @font-face costs ~120kB of base64 and is identical on every
- * capture, so it is computed once and handed to html-to-image thereafter.
- * Without it, a Moodscreen re-rendered on every keystroke would re-inline
- * every woff2 each time.
+ * Embedding @font-face costs ~120kB of base64, so it is computed once and
+ * handed to html-to-image thereafter. Without it, a Moodscreen re-rendered on
+ * every keystroke would re-inline every woff2 each time.
+ *
+ * Keyed by display face, and that key is the whole point. `getFontEmbedCSS`
+ * inlines the faces the node is *currently using*, so a single cached result
+ * is only correct for the theme that happened to be active on the first
+ * capture. Every other theme then exported with that theme's font embedded and
+ * its own missing, and the statement — the one thing on the card set in the
+ * display face — came back in Arial while the mono chrome, embedded on every
+ * pass because every theme uses it, looked perfectly fine. That combination is
+ * what makes this worth a comment: the symptom points at the statement, and
+ * the cause is a cache that does not know themes exist.
  */
-let fontEmbedCssPromise = null;
+const fontEmbedCssByFace = new Map();
 
-function getFontEmbedCss(node) {
-  if (!fontEmbedCssPromise) {
-    fontEmbedCssPromise = import("html-to-image")
-      .then((m) => m.getFontEmbedCSS(node))
-      .catch((e) => {
-        console.warn("moodscreen export: could not pre-embed fonts", e);
-        fontEmbedCssPromise = null;
-        return undefined;
-      });
+function getFontEmbedCss(node, faceFamily) {
+  const key = faceFamily || "default";
+
+  if (!fontEmbedCssByFace.has(key)) {
+    fontEmbedCssByFace.set(
+      key,
+      import("html-to-image")
+        .then((m) => m.getFontEmbedCSS(node))
+        .catch((e) => {
+          console.warn("moodscreen export: could not pre-embed fonts", e);
+          fontEmbedCssByFace.delete(key);
+          return undefined;
+        }),
+    );
   }
-  return fontEmbedCssPromise;
+
+  return fontEmbedCssByFace.get(key);
 }
 
 /**
  * @param {HTMLElement} node the 540x540 export node, unscaled
+ * @param {{ pixelRatio?: number, theme?: object }} [options] the active theme,
+ *   so the embedded @font-face set is the one this card actually draws with
  * @returns {Promise<Blob>}
  */
-export async function captureMoodscreenBlob(node, { pixelRatio = 3 } = {}) {
+export async function captureMoodscreenBlob(node, { pixelRatio = 3, theme } = {}) {
   if (!node) throw new Error("No Moodscreen to export.");
 
   const width = node.offsetWidth || BASE_SIZE;
   const height = node.offsetHeight || BASE_SIZE;
   if (width < 4 || height < 4) throw new Error("The Moodscreen has no layout yet.");
 
+  /* The face has to be loaded before the CSS that embeds it is built, or the
+   * cache stores a result with nothing in it for this theme. */
+  await ensureMoodscreenFontsReady(theme);
+
   const { toBlob } = await import("html-to-image");
-  const fontEmbedCSS = await getFontEmbedCss(node);
+  const fontEmbedCSS = await getFontEmbedCss(node, theme?.font?.faceFamily);
 
   /* Two frames, so a just-changed statement has actually been painted. */
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));

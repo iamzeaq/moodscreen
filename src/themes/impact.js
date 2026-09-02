@@ -1,4 +1,4 @@
-/**
+﻿/**
  * impact — free. Bebas Neue.
  *
  * The loud one. A tall condensed face fits far more statement at a far larger
@@ -17,7 +17,7 @@ export const impact = {
     case: "upper",
     tracking: "0.01em",
     lineHeight: 1.05,
-    scale: [50, 40, 30, 24],
+    scale: [64, 51, 38, 30],
   },
 
   texture: "glyph",

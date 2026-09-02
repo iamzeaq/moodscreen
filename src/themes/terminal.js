@@ -1,4 +1,4 @@
-/**
+﻿/**
  * terminal — free. JetBrains Mono.
  *
  * A working monospace rather than a decorative one. §12 forbids monospace as
@@ -17,7 +17,7 @@ export const terminal = {
     case: "upper",
     tracking: "0.01em",
     lineHeight: 1.4,
-    scale: [31, 25, 20, 16],
+    scale: [39, 32, 25, 20],
   },
 
   texture: "scanline",

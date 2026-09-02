@@ -10,11 +10,19 @@
  * mood is one entry in FACES, not a new logo.
  */
 
-/** Eyes, at rest: two vertical strokes centred on x 14.5 / 25.5, y 16. */
-const EYES_VERTICAL = ["M14.5 13.5 V18.5", "M25.5 13.5 V18.5"];
+/**
+ * Eyes, at rest: two vertical strokes centred on x 14.5 / 25.5, y 16.
+ *
+ * Length matters more than it looks. These ran 5 units against a stroke of 3
+ * to 3.6 with round caps, and a round-capped stroke only 1.4 times longer than
+ * it is wide is a dot — which made the mark read as exactly the smiley §8
+ * exists to avoid. At 9 units the stroke is three times its own width and
+ * reads as the line it is meant to be.
+ */
+const EYES_VERTICAL = ["M14.5 11.5 V20.5", "M25.5 11.5 V20.5"];
 
-/** `coding` lays the eyes down. Same centres, same length. */
-const EYES_HORIZONTAL = ["M12 16 H17", "M23 16 H28"];
+/** `coding` lays the eyes down. Same centres, and long enough to read too. */
+const EYES_HORIZONTAL = ["M11 16 H17", "M23 16 H29"];
 
 /**
  * The mouth table. The first five are transcribed from §8 verbatim.
@@ -41,7 +49,8 @@ const DEFAULT_MOOD = "thinking";
 /* The drawn box inside the 40x40 viewBox, stroke caps included. Used by the
  * lockup to sit the mark on the wordmark's x-height rather than its cap. */
 export const MARK_VIEWBOX = 40;
-export const MARK_INK_TOP = 12;
+/** Eye top 11.5 less the round cap's 1.5. */
+export const MARK_INK_TOP = 10;
 export const MARK_INK_BOTTOM = 31.5;
 export const MARK_INK_HEIGHT = MARK_INK_BOTTOM - MARK_INK_TOP;
 

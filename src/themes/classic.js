@@ -1,4 +1,4 @@
-/**
+﻿/**
  * classic — free. Instrument Serif.
  *
  * The one that does not shout. A serif depends on the contrast between its
@@ -18,7 +18,7 @@ export const classic = {
     case: "sentence",
     tracking: "-0.01em",
     lineHeight: 1.15,
-    scale: [46, 36, 28, 22],
+    scale: [58, 46, 36, 28],
   },
 
   texture: "glyph",

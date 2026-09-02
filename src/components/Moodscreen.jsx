@@ -46,20 +46,25 @@ const GRAIN_OPACITY = 0.07;
 const WATERMARK_OPACITY = 0.16;
 
 /**
- * §7.5 — 300px, the third size in the same series as the lockup's 17 and the
- * mood label's 24, so it is the element size like the other two.
+ * The watermark's size and offsets — and why it is not cropped.
  *
- * The offsets are the part that had to be worked out. The mark draws inside
- * roughly the middle third of its 40-unit viewBox, so the box overhangs the
- * ink by a long way on every side and an offset chosen against the box crops
- * far more of the face than it looks like it should. These crop about a fifth
- * of the right-hand side: enough that the face is clearly cut by the screen
- * edge rather than sitting inside it like a placeholder, and not so much that
- * an eye disappears and the rest reads as two stray bars.
+ * §7.3 asks for the face cropped by the screen edge. That works for a glyph
+ * with mass to spare at its edges. This mark has none: it is three thin
+ * strokes around a lot of empty space, and its extremities *are* its features,
+ * so a crop deep enough to read as a crop takes an eye with it. Cropping 15%
+ * of the ink width removed 70% of the right eye and left the two stray bars
+ * that read as a rendering fault. There is no offset that crops this face and
+ * keeps it a face.
+ *
+ * So it sits whole, low and right — off-centre enough not to read as the
+ * placeholder §7.5 warns a centred glyph becomes, and large enough at 161 x
+ * 247px to be a deliberate mark rather than an artifact. If it has to be
+ * cropped, the mark needs a filled variant to crop into; that is a drawing
+ * job, not an offset.
  */
-const WATERMARK_SIZE = 300;
-const WATERMARK_RIGHT = -115;
-const WATERMARK_BOTTOM = -55;
+const WATERMARK_SIZE = 460;
+const WATERMARK_RIGHT = -138;
+const WATERMARK_BOTTOM = -28;
 
 /** §7.5 — ink alphas for the three quiet tiers. */
 const INK_TIMESTAMP = 0.7;
@@ -288,7 +293,6 @@ function Lockup({ moodId, username, ink }) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        gap: 6,
         fontFamily: "var(--font-ui)",
         fontSize: 15,
         lineHeight: 1,
@@ -297,9 +301,14 @@ function Lockup({ moodId, username, ink }) {
       }}
     >
       <Logo mood={moodId} size={17} />
-      <span style={{ fontWeight: 700 }}>moodscreen</span>
-      <span style={{ fontWeight: 500, opacity: 0.6, letterSpacing: "-0.01em" }}>
-        .live/{handle}
+      {/* One run of text, not two flex children. `moodscreen.live/name` is a
+        * single string and a gap in the middle of it makes the domain read as
+        * a separate label; the only space in the lockup is after the mark. */}
+      <span style={{ marginLeft: 6 }}>
+        <span style={{ fontWeight: 700 }}>moodscreen</span>
+        <span style={{ fontWeight: 500, opacity: 0.6, letterSpacing: "-0.01em" }}>
+          .live/{handle}
+        </span>
       </span>
     </div>
   );

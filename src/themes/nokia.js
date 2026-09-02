@@ -1,4 +1,4 @@
-/**
+﻿/**
  * nokia — free. Silkscreen.
  *
  * The theme the shape is named after. Silkscreen comes from displays that only
@@ -17,7 +17,7 @@ export const nokia = {
     case: "upper",
     tracking: "0.02em",
     lineHeight: 1.35,
-    scale: [30, 24, 18, 14],
+    scale: [38, 30, 23, 18],
   },
 
   texture: "scanline",

@@ -232,8 +232,9 @@ export default function KitchenSinkPage() {
     setExportNote(null);
     try {
       const node = document.getElementById(KS_EXPORT_IDS[exportMode]);
-      await ensureMoodscreenFontsReady(getTheme(themeId));
-      const blob = await captureMoodscreenBlob(node);
+      const theme = getTheme(themeId);
+      await ensureMoodscreenFontsReady(theme);
+      const blob = await captureMoodscreenBlob(node, { theme });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;

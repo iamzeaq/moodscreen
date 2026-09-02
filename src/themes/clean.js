@@ -1,4 +1,4 @@
-/**
+﻿/**
  * clean — free. Switzer.
  *
  * The interface family doing display duty. It is the theme for someone who
@@ -17,7 +17,7 @@ export const clean = {
     case: "sentence",
     tracking: "-0.02em",
     lineHeight: 1.25,
-    scale: [38, 30, 24, 19],
+    scale: [48, 38, 30, 24],
   },
 
   texture: "glyph",
