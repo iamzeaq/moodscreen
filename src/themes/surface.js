@@ -38,8 +38,13 @@ const CANVAS_L = hexToOklch(EXPORT_CANVAS).l;
  * So the value is derived from the backdrop rather than picked against it: the
  * same hue, lifted far enough in lightness that the edge reads as an edge. It
  * is still unmistakably a dark card, and it is still never #000.
+ *
+ * The bar for "far enough" is the `colour` surface: a mood fill sits on the
+ * backdrop as an obvious object, and `ink` has to be an object too, not a
+ * slightly different black. +0.09 was the first attempt and was still too
+ * timid to pass that comparison.
  */
-const INK_LIFT = 0.09;
+const INK_LIFT = 0.15;
 
 export const INK_SURFACE = toneOf(EXPORT_CANVAS, CANVAS_L + INK_LIFT, 0.02);
 

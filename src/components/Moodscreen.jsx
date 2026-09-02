@@ -60,11 +60,20 @@ const CLIP = `path("${screenPathAt(BASE_SIZE)}")`;
  * §7.3 — texture strength per surface. Dark texture on a light field reads
  * much stronger, so `paper` needs both of these dialled back hard.
  */
-const SCANLINE_OPACITY = { colour: 0.13, ink: 0.12, paper: 0.07 };
+/**
+ * §7.3 — texture strength per surface. §7.3 gives the principle as light field
+ * needs it dialled back, and states it for `paper`; the same principle applies
+ * with the sign flipped on `ink`, which the spec's numbers missed. There the
+ * line is drawn in the surface's own ink — a *lightened* tone of the mood — on
+ * a near-black field, so it is a light stroke on a dark ground at close to full
+ * contrast, and 12% reads as distinct stripes rather than as texture. It is the
+ * same failure as dark-on-paper, and it wants the same answer.
+ */
+const SCANLINE_OPACITY = { colour: 0.13, ink: 0.055, paper: 0.07 };
 const VIGNETTE_OPACITY = { colour: 0.14, ink: 0.1, paper: 0.07 };
 
 const GRAIN_OPACITY = 0.07;
-const WATERMARK_OPACITY = 0.16;
+const WATERMARK_OPACITY = 0.14;
 
 /**
  * The watermark — §7.3 layer 6, the mood's own face bleeding off the
@@ -83,7 +92,15 @@ const WATERMARK_OPACITY = 0.16;
  * margin. An offset against that box would be wildly unfaithful to where the
  * features actually are, which is how the first version went wrong.
  */
-const WATERMARK_SIZE = 300;
+/**
+ * §7.5 names 300px, which is 55% of the card's width, and at that size the
+ * face stops being a texture and becomes the subject — on a saturated field it
+ * fills most of the lower half and competes with the statement it is supposed
+ * to sit behind. Layer 6 is a watermark: it should be something you notice
+ * second. A third of the card's width leaves it clearly a face, clearly
+ * cropped, and clearly behind everything else.
+ */
+const WATERMARK_SIZE = 186;
 
 /**
  * Where the screen's drawn corner falls across the face, as a fraction of it.
