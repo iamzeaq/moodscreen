@@ -6,6 +6,7 @@ import {
 } from "../lib/moodCategories.js";
 import MoodCategoryPicker from "./MoodCategoryPicker.jsx";
 import MoodTextInputWithSuggestions from "./MoodTextInputWithSuggestions.jsx";
+import { DEFAULT_THEME_ID, FREE_THEMES } from "../themes/index.js";
 
 function hasSecondSlotContent(entries) {
   if (!Array.isArray(entries) || entries.length < 2) return false;
@@ -13,34 +14,41 @@ function hasSecondSlotContent(entries) {
   return Boolean(s?.categoryId || (typeof s?.text === "string" && s.text.trim()));
 }
 
-/** iOS-style switch — thumb slides with a smooth spring-like curve when toggling. */
-function CardDarkModeSwitch({ checked, onChange, labelledBy }) {
+/**
+ * Theme picker. Replaces the old dark-preview switch, which stopped meaning
+ * anything the moment the Moodscreen became theme-driven — the theme decides
+ * the surface now, not a boolean.
+ */
+function ThemePicker({ value, onChange, labelledBy }) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-labelledby={labelledBy}
-      onClick={() => onChange(!checked)}
-      className={[
-        "ios-card-switch relative h-8 w-[52px] shrink-0 cursor-pointer select-none rounded-full p-[3px] touch-manipulation",
-        "transition-[background-color] duration-[var(--dur-state)] ease-brand",
-        "outline-none focus-visible:outline-2 focus-visible:outline-accent-ring focus-visible:outline-offset-2",
-        checked ? "bg-accent" : "bg-panel",
-      ].join(" ")}
-    >
-      <span
-        aria-hidden
-        className={[
-          "pointer-events-none absolute left-[3px] top-1/2 block h-[26px] w-[26px] rounded-full bg-white",
-          "shadow-[0_2px_6px_rgba(0,0,0,0.22),0_1px_1px_rgba(0,0,0,0.1)]",
-          "transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform",
-          checked
-            ? "-translate-y-1/2 translate-x-[20px]"
-            : "-translate-y-1/2 translate-x-0",
-        ].join(" ")}
-      />
-    </button>
+    <div className="flex gap-1" role="radiogroup" aria-labelledby={labelledBy}>
+      {FREE_THEMES.map((t) => {
+        const active = t.id === value;
+        return (
+          <button
+            key={t.id}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => onChange(t.id)}
+            className={[
+              "h-9 rounded-md px-3 text-13 font-semibold touch-manipulation",
+              "outline-none focus-visible:outline-2 focus-visible:outline-accent-ring focus-visible:outline-offset-2",
+              active
+                ? "bg-accent text-[var(--accent-ink)]"
+                : "bg-panel text-muted hover:bg-overlay hover:text-fg",
+            ].join(" ")}
+            style={{
+              transitionProperty: "background-color, color",
+              transitionDuration: "var(--dur-hover)",
+              transitionTimingFunction: "var(--ease)",
+            }}
+          >
+            {t.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -55,8 +63,7 @@ export default function StatusForm({
     location = "",
     moodEntries: rawMood = [],
     link = "",
-    cardDarkMode = true,
-    avatarUrl = null,
+    themeId = DEFAULT_THEME_ID,
   } = value;
 
   const moodEntries = normalizeMoodEntries(rawMood);
@@ -127,13 +134,6 @@ export default function StatusForm({
   const showPlus =
     !secondRowLeaving && !(moodEntries.length >= MOOD_ENTRY_MAX_SLOTS && secondSlotVisible);
 
-  function onPickAvatar(file) {
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    if (avatarUrl?.startsWith("blob:")) URL.revokeObjectURL(avatarUrl);
-    onChange({ avatarUrl: url });
-  }
-
   return (
     <section
       className={["ds-card-static ds-inset-card", className].filter(Boolean).join(" ")}
@@ -143,16 +143,13 @@ export default function StatusForm({
           {title}
         </h2>
         <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end sm:pl-2">
-          <span
-            id="status-form-dark-label"
-            className="text-[0.8125rem] font-medium leading-none text-secondary"
-          >
-            Dark preview
+          <span id="status-form-theme-label" className="text-13 font-medium text-muted">
+            Theme
           </span>
-          <CardDarkModeSwitch
-            labelledBy="status-form-dark-label"
-            checked={cardDarkMode}
-            onChange={(next) => onChange({ cardDarkMode: next })}
+          <ThemePicker
+            labelledBy="status-form-theme-label"
+            value={themeId}
+            onChange={(next) => onChange({ themeId: next })}
           />
         </div>
       </div>
@@ -270,34 +267,6 @@ export default function StatusForm({
           />
         </label>
 
-        <div className="ds-stack-inline">
-          <div className="flex items-center justify-between gap-3">
-            <span className="ds-label">Profile image</span>
-            {avatarUrl && (
-              <button
-                type="button"
-                className="ds-meta transition-colors hover:text-primary"
-                onClick={() => {
-                  if (avatarUrl?.startsWith("blob:")) URL.revokeObjectURL(avatarUrl);
-                  onChange({ avatarUrl: null });
-                }}
-              >
-                Clear
-              </button>
-            )}
-          </div>
-
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => onPickAvatar(e.target.files?.[0] ?? null)}
-            className="ds-input h-11 py-2"
-          />
-
-          <p className="ds-meta">
-            Optional. A local image preview is used and never uploaded.
-          </p>
-        </div>
       </div>
     </section>
   );

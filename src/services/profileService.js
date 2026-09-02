@@ -94,7 +94,6 @@ export async function completeOnboarding(userId, fields) {
       location,
       moodEntries,
       link: "",
-      cardDarkMode: true,
       avatarUrl: null,
     },
     {},

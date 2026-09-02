@@ -9,6 +9,7 @@ import {
   standardEntriesFromMoodEntries,
 } from "../lib/moodscreenPayload.js";
 import { sanitizeMoodEntries } from "../lib/moodscreenValidation.js";
+import { DEFAULT_THEME_ID, isThemeId } from "../themes/index.js";
 import { supabase } from "../lib/supabaseClient.js";
 
 /** Primary guest key (launch) */
@@ -44,7 +45,7 @@ export function serializeMoodscreenState(state, meta = {}) {
     moodEntries,
     entries: standardEntriesFromMoodEntries(moodEntries),
     link: typeof state.link === "string" ? state.link : "",
-    cardDarkMode: state.cardDarkMode !== false,
+    themeId: isThemeId(state.themeId) ? state.themeId : DEFAULT_THEME_ID,
     avatarUrl:
       typeof state.avatarUrl === "string" && !state.avatarUrl.startsWith("blob:")
         ? state.avatarUrl

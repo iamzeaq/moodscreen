@@ -5,13 +5,27 @@
  * and no copy worth reading; if anything here starts looking designed,
  * something has been built in the wrong file.
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Button from "../components/ui/Button.jsx";
 import Input, { UsernameInput } from "../components/ui/Input.jsx";
 import Logo, { LOGO_MOODS } from "../components/brand/Logo.jsx";
 import Wordmark from "../components/brand/Wordmark.jsx";
+import Moodscreen from "../components/Moodscreen.jsx";
+import MoodscreenExportSurface from "../components/MoodscreenExportSurface.jsx";
 import { MOODS, DEFAULT_ACCENT, accentForMood } from "../lib/moods.js";
 import { accentVars, applyAccent } from "../lib/color.js";
+import { LONGEST_STATEMENT, SAMPLE_MOODSCREENS } from "../lib/sampleMoodscreens.js";
+import {
+  STATEMENT_MAX_CHARS,
+  STATEMENT_STEPS,
+  statementSize,
+} from "../lib/statementFit.js";
+import { THEME_LIST, getTheme } from "../themes/index.js";
+import {
+  captureMoodscreenBlob,
+  ensureMoodscreenFontsReady,
+  exportFilename,
+} from "../lib/exportMoodscreen.js";
 
 /* ------------------------------------------------------------------ shell */
 
@@ -150,12 +164,31 @@ const DURATIONS = [
   ["layout", "var(--dur-layout)"],
 ];
 
+/** One statement per step of the character-count ladder, at the step's length. */
+const LADDER_SAMPLES = [
+  "Shipping the renderer",
+  "Three hours into a bug that turned out to be a missing await keyword",
+  "Rewriting the export path so that the preview and the posted image can never drift " +
+    "apart again, which has cost me two evenings",
+  LONGEST_STATEMENT,
+];
+
+const KS_EXPORT_ID = "kitchen-sink-export";
+
 /* -------------------------------------------------------------------- page */
 
 export default function KitchenSinkPage() {
   const [moodId, setMoodId] = useState("thinking");
   const [claim, setClaim] = useState("");
   const [shifted, setShifted] = useState(false);
+
+  const [themeId, setThemeId] = useState("classic");
+  const [statement, setStatement] = useState(
+    "Rewriting the export path so the preview and the image can never drift",
+  );
+  const [exporting, setExporting] = useState(false);
+  const [exportNote, setExportNote] = useState(null);
+  const exportingRef = useRef(false);
 
   const accent = accentForMood(moodId);
 
@@ -165,6 +198,47 @@ export default function KitchenSinkPage() {
   }, [accent]);
 
   const vars = accentVars(accent);
+
+  const live = {
+    mood: moodId,
+    statement,
+    name: "Isaac Twekyard",
+    location: "Lagos",
+    username: "isaac",
+    themeId,
+  };
+
+  /** Capture the off-screen twin and hand the PNG straight to the browser. */
+  const saveImage = useCallback(async () => {
+    if (exportingRef.current) return;
+    exportingRef.current = true;
+    setExporting(true);
+    setExportNote(null);
+    try {
+      const node = document.getElementById(KS_EXPORT_ID);
+      await ensureMoodscreenFontsReady(getTheme(themeId));
+      const blob = await captureMoodscreenBlob(node);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = exportFilename("isaac");
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 8000);
+
+      const bitmap = await createImageBitmap(blob);
+      setExportNote(
+        `${bitmap.width}x${bitmap.height}, ${(blob.size / 1024).toFixed(0)} kB — ${themeId}, ${moodId}`,
+      );
+      bitmap.close?.();
+    } catch (e) {
+      setExportNote(`Export failed: ${e?.message ?? e}`);
+    } finally {
+      exportingRef.current = false;
+      setExporting(false);
+    }
+  }, [themeId, moodId]);
 
   return (
     <main className="mx-auto flex max-w-content flex-col gap-12 px-6 py-16">
@@ -208,6 +282,150 @@ export default function KitchenSinkPage() {
         <div className="flex flex-wrap gap-4">
           {Object.entries(vars).map(([name, value]) => (
             <Swatch key={name} name={name} value={value} textOn={undefined} />
+          ))}
+        </div>
+      </Section>
+
+      {/* ----------------------------------------------------- moodscreen */}
+      <Section
+        title="The Moodscreen"
+        note="One component renders this and the exported PNG. The card always lays out at 360x450 and is scaled for display, so the export is that same node at 3x — 1080x1350 — and cannot drift from what you see."
+      >
+        <div className="flex flex-wrap items-start gap-8">
+          <Moodscreen {...live} width={360} />
+
+          <div className="flex min-w-[18rem] flex-1 flex-col gap-6">
+            <div className="flex flex-col gap-3">
+              <p className="text-11 text-faint">theme</p>
+              <div className="flex gap-2">
+                {THEME_LIST.map((t) => (
+                  <Button
+                    key={t.id}
+                    variant={t.id === themeId ? "primary" : "secondary"}
+                    onClick={() => setThemeId(t.id)}
+                  >
+                    {t.label}
+                  </Button>
+                ))}
+              </div>
+              <p className="text-12 text-faint">
+                {getTheme(themeId).font.faceFamily} · surface {getTheme(themeId).surface} ·
+                texture {getTheme(themeId).texture} · glyph {getTheme(themeId).glyph}
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <p className="text-11 text-faint">mood — the card cross-fades over 240ms</p>
+              <div className="flex flex-wrap gap-2">
+                {MOODS.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setMoodId(m.id)}
+                    aria-pressed={m.id === moodId}
+                    className="rounded-sm border border-line bg-panel px-3 py-1.5 text-12 text-muted outline-none hover:border-line-strong focus-visible:outline-2 focus-visible:outline-accent-ring focus-visible:outline-offset-2 aria-pressed:border-accent aria-pressed:text-fg"
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label htmlFor="ks-statement" className="text-13 font-medium text-muted">
+                Statement
+              </label>
+              <textarea
+                id="ks-statement"
+                value={statement}
+                maxLength={STATEMENT_MAX_CHARS}
+                onChange={(e) => setStatement(e.target.value)}
+                rows={3}
+                className="w-full rounded-sm border border-line bg-panel px-3 py-2 font-ui text-15 text-fg outline-none placeholder:text-faint hover:border-line-strong focus:border-accent focus:bg-[var(--accent-tint)]"
+              />
+              <p className="text-11 text-faint">
+                {statement.length} / {STATEMENT_MAX_CHARS} characters — set at{" "}
+                {statementSize(statement, getTheme(themeId).font)}px
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-4">
+              <Button onClick={saveImage} loading={exporting}>
+                Save the image
+              </Button>
+              <Button variant="secondary" onClick={() => setStatement(LONGEST_STATEMENT)}>
+                Fill to 180
+              </Button>
+            </div>
+            {exportNote ? (
+              <p className="text-12 text-muted" role="status">
+                {exportNote}
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        {/* The node the capture photographs — full chroma and the die-cut
+          * border, parked outside the viewport. */}
+        <MoodscreenExportSurface {...live} id={KS_EXPORT_ID} />
+      </Section>
+
+      <Section
+        title="Every mood"
+        note="Ten moods in the theme selected above. Ink is a dark tone from each mood's own hue family — never black, never white."
+      >
+        <div className="flex flex-wrap gap-6">
+          {MOODS.map((m, i) => (
+            <Moodscreen
+              key={m.id}
+              mood={m.id}
+              themeId={themeId}
+              statement={SAMPLE_MOODSCREENS[i % SAMPLE_MOODSCREENS.length].statement}
+              name={SAMPLE_MOODSCREENS[i % SAMPLE_MOODSCREENS.length].name}
+              location={SAMPLE_MOODSCREENS[i % SAMPLE_MOODSCREENS.length].location}
+              username={SAMPLE_MOODSCREENS[i % SAMPLE_MOODSCREENS.length].username}
+              width={200}
+            />
+          ))}
+        </div>
+      </Section>
+
+      <Section
+        title="Both themes"
+        note="A theme is data. classic fills the card with the mood and sets it in Instrument Serif with the glyph cropped by the edge; sharp inverts to the mood's ink and sets it in Clash Display with no watermark. Neither required a line of the renderer."
+      >
+        <div className="flex flex-wrap gap-8">
+          {THEME_LIST.map((t) => (
+            <div key={t.id} className="flex flex-col gap-3">
+              <Moodscreen {...live} themeId={t.id} width={300} />
+              <span className="text-11 text-faint">
+                {t.label} — {t.tier}
+              </span>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section
+        title="Fitting the statement"
+        note="Step down by character count; never truncate, never overflow. The input is hard-capped at 180 so nothing lands below the smallest step."
+      >
+        <div className="flex flex-wrap gap-6">
+          {LADDER_SAMPLES.map((s, i) => (
+            <div key={i} className="flex flex-col gap-3">
+              <Moodscreen
+                mood={moodId}
+                themeId={themeId}
+                statement={s}
+                name="Isaac Twekyard"
+                location="Lagos"
+                username="isaac"
+                width={240}
+              />
+              <span className="text-11 text-faint">
+                {s.length} chars — {STATEMENT_STEPS[i].size}px
+              </span>
+            </div>
           ))}
         </div>
       </Section>

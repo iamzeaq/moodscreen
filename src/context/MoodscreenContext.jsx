@@ -8,6 +8,9 @@ import {
   useState,
 } from "react";
 import { useAuth } from "./AuthContext.jsx";
+import MoodscreenExportSurface, {
+  EXPORT_NODE_ID,
+} from "../components/MoodscreenExportSurface.jsx";
 import {
   fetchMoodscreenForUser,
   readGuestMoodscreen,
@@ -17,7 +20,6 @@ import {
 } from "../services/moodscreenDataService.js";
 import {
   DEFAULT_MOOD_ENTRIES,
-  moodRowsFromEntries,
   normalizeMoodEntries,
 } from "../lib/moodCategories.js";
 import { normalizeStoredMoodscreen } from "../lib/moodscreenPayload.js";
@@ -25,9 +27,17 @@ import {
   canAttemptSave,
   recordSuccessfulSave,
 } from "../lib/moodscreenRateLimit.js";
-import { isActiveWithin48h } from "../lib/profileUtils.js";
 import { sanitizeMoodEntries } from "../lib/moodscreenValidation.js";
-import { captureMoodscreenCardToPngBlob } from "../lib/captureMoodscreenCard.js";
+import { deriveMoodId, deriveStatement } from "../lib/moodscreenModel.js";
+import {
+  captureMoodscreenBlob,
+  ensureMoodscreenFontsReady,
+  exportFilename,
+} from "../lib/exportMoodscreen.js";
+import { DEFAULT_THEME_ID, getTheme, isThemeId } from "../themes/index.js";
+
+/** How long after the last edit to re-render the export blob. */
+const PRERENDER_DEBOUNCE_MS = 400;
 
 /** Touch / mobile browsers need longer before revoke or the save dialog never receives the blob. */
 function downloadRevokeDelayMs() {
@@ -97,19 +107,7 @@ function normalizeShareUrl(link) {
   return `https://${t}`;
 }
 
-function shareFormSnapshot(fv) {
-  if (!fv || typeof fv !== "object") return "";
-  return JSON.stringify({
-    link: fv.link,
-    name: fv.name,
-    location: fv.location,
-    moodEntries: fv.moodEntries,
-    cardDarkMode: fv.cardDarkMode,
-    avatarUrl: fv.avatarUrl,
-  });
-}
-
-/** Web Share must run in the same synchronous turn as a tap — call only from second Share click */
+/** Web Share must run in the same synchronous turn as a tap. */
 function invokeNavigatorShare({ file, text, url }) {
   if (typeof navigator === "undefined" || typeof navigator.share !== "function") {
     return Promise.reject(new Error("Web Share is not available"));
@@ -139,7 +137,7 @@ const DEFAULT_FORM = {
   name: "Isaac Twekyard",
   location: "Lagos",
   link: "",
-  cardDarkMode: true,
+  themeId: DEFAULT_THEME_ID,
   avatarUrl: null,
 };
 
@@ -152,7 +150,7 @@ export function MoodscreenProvider({ children }) {
   const [location, setLocation] = useState(DEFAULT_FORM.location);
   const [moodEntries, setMoodEntries] = useState(DEFAULT_MOOD_ENTRIES);
   const [link, setLink] = useState(DEFAULT_FORM.link);
-  const [cardDarkMode, setCardDarkMode] = useState(DEFAULT_FORM.cardDarkMode);
+  const [themeId, setThemeId] = useState(DEFAULT_FORM.themeId);
   const [avatarUrl, setAvatarUrl] = useState(DEFAULT_FORM.avatarUrl);
 
   const [hydrated, setHydrated] = useState(false);
@@ -161,12 +159,8 @@ export function MoodscreenProvider({ children }) {
   const persistMetaRef = useRef({ created_at: null });
   const lastSuccessfulSaveAtRef = useRef(0);
   const formValueRef = useRef(null);
-  const sharePreparedRef = useRef(null);
-  const shareSnapshotRef = useRef("");
   const [storageNotice, setStorageNotice] = useState(null);
   const storageNoticeTimerRef = useRef(null);
-  const [sharePrimed, setSharePrimed] = useState(false);
-  const [shareHint, setShareHint] = useState(null);
 
   const applyFromObject = useCallback((obj) => {
     if (!obj || typeof obj !== "object") return;
@@ -174,7 +168,7 @@ export function MoodscreenProvider({ children }) {
     setName(n.name !== undefined ? n.name : DEFAULT_FORM.name);
     setLocation(n.location !== undefined ? n.location : DEFAULT_FORM.location);
     setLink(n.link !== undefined ? n.link : DEFAULT_FORM.link);
-    setCardDarkMode(n.cardDarkMode !== false);
+    setThemeId(isThemeId(n.themeId) ? n.themeId : DEFAULT_FORM.themeId);
     setAvatarUrl(n.avatarUrl ?? null);
     setMoodEntries(normalizeMoodEntries(n.moodEntries));
     if (n.created_at) persistMetaRef.current.created_at = n.created_at;
@@ -224,20 +218,13 @@ export function MoodscreenProvider({ children }) {
       location,
       moodEntries,
       link,
-      cardDarkMode,
+      themeId,
       avatarUrl,
     }),
-    [name, location, moodEntries, link, cardDarkMode, avatarUrl],
+    [name, location, moodEntries, link, themeId, avatarUrl],
   );
 
   formValueRef.current = formValue;
-
-  useEffect(() => {
-    sharePreparedRef.current = null;
-    shareSnapshotRef.current = "";
-    setSharePrimed(false);
-    setShareHint(null);
-  }, [formValue]);
 
   const handleFormChange = useCallback((patch) => {
     if (!patch) return;
@@ -247,8 +234,8 @@ export function MoodscreenProvider({ children }) {
     if (Object.prototype.hasOwnProperty.call(patch, "moodEntries") && Array.isArray(patch.moodEntries))
       setMoodEntries(sanitizeMoodEntries(patch.moodEntries));
     if (Object.prototype.hasOwnProperty.call(patch, "link")) setLink(patch.link);
-    if (Object.prototype.hasOwnProperty.call(patch, "cardDarkMode"))
-      setCardDarkMode(!!patch.cardDarkMode);
+    if (Object.prototype.hasOwnProperty.call(patch, "themeId") && isThemeId(patch.themeId))
+      setThemeId(patch.themeId);
     if (Object.prototype.hasOwnProperty.call(patch, "avatarUrl"))
       setAvatarUrl(patch.avatarUrl);
   }, []);
@@ -306,7 +293,7 @@ export function MoodscreenProvider({ children }) {
     return () => window.clearTimeout(storageNoticeTimerRef.current);
   }, [storageNotice]);
 
-  /** On sign-out, keep the current card in guest storage immediately */
+  /** On sign-out, keep the current Moodscreen in guest storage immediately */
   useEffect(() => {
     const was = prevUserIdRef.current;
     if (was && !user?.id && hydrated) {
@@ -319,21 +306,120 @@ export function MoodscreenProvider({ children }) {
 
   const initials = useMemo(() => getInitials(name), [name]);
 
-  const moodRows = useMemo(() => moodRowsFromEntries(moodEntries), [moodEntries]);
+  const username = useMemo(
+    () =>
+      typeof profile?.username === "string" && profile.username.trim()
+        ? profile.username.trim().toLowerCase()
+        : "",
+    [profile?.username],
+  );
+
+  /**
+   * Everything <Moodscreen> needs, and nothing else. Mood and statement are
+   * derived from the editor's rows rather than stored — see
+   * src/lib/moodscreenModel.js.
+   */
+  const moodscreenProps = useMemo(
+    () => ({
+      mood: deriveMoodId(moodEntries),
+      statement: deriveStatement(moodEntries),
+      name: (name || "").trim(),
+      location: (location || "").trim(),
+      username,
+      themeId,
+    }),
+    [moodEntries, name, location, username, themeId],
+  );
+
+  /* ------------------------------------------------------ export + share */
 
   const [isExporting, setIsExporting] = useState(false);
   const [copied, setCopied] = useState(false);
   const [downloadError, setDownloadError] = useState(null);
+  const [shareReady, setShareReady] = useState(false);
+
+  /** { key, blob, file, filename } for the current Moodscreen, or null. */
+  const preparedRef = useRef(null);
+
+  const exportKey = useMemo(() => JSON.stringify(moodscreenProps), [moodscreenProps]);
+  const exportKeyRef = useRef(exportKey);
+  exportKeyRef.current = exportKey;
+
+  /**
+   * Pre-render the blob whenever the Moodscreen changes.
+   *
+   * This is what fixes the two-tap share: Web Share has to be called in the
+   * same synchronous turn as the tap, and awaiting a capture spends the
+   * gesture. Doing the work ahead of time means the tap has a File already.
+   */
+  useEffect(() => {
+    if (!hydrated || typeof document === "undefined") return undefined;
+
+    let cancelled = false;
+    setShareReady(false);
+    preparedRef.current = null;
+
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const node = document.getElementById(EXPORT_NODE_ID);
+          if (!node || cancelled) return;
+
+          await ensureMoodscreenFontsReady(getTheme(themeId));
+          if (cancelled) return;
+
+          const blob = await captureMoodscreenBlob(node);
+          if (cancelled) return;
+
+          const filename = exportFilename(username, name);
+          preparedRef.current = {
+            key: exportKey,
+            blob,
+            filename,
+            file: new File([blob], filename, { type: "image/png" }),
+          };
+          setShareReady(true);
+        } catch (e) {
+          /* Not user-facing: the on-demand path below will retry and report. */
+          console.warn("moodscreen pre-render failed:", e);
+        }
+      })();
+    }, PRERENDER_DEBOUNCE_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [exportKey, hydrated, themeId, username, name]);
+
+  /** The blob for right now — the pre-rendered one if it is still current. */
+  const currentPrepared = useCallback(() => {
+    const prep = preparedRef.current;
+    return prep && prep.key === exportKeyRef.current ? prep : null;
+  }, []);
+
+  const captureNow = useCallback(async () => {
+    const node = document.getElementById(EXPORT_NODE_ID);
+    if (!node) throw new Error("The Moodscreen is not ready yet.");
+    await ensureMoodscreenFontsReady(getTheme(formValueRef.current?.themeId));
+    const blob = await captureMoodscreenBlob(node);
+    const filename = exportFilename(username, formValueRef.current?.name);
+    return { blob, filename };
+  }, [username]);
 
   const downloadPng = useCallback(async () => {
     if (isExporting) return;
-    if (typeof document === "undefined" || !document.getElementById("moodscreen-card")) {
-      setDownloadError("Card preview is not ready — open the studio and try again.");
+    setDownloadError(null);
+
+    /* Best case: nothing to await, so even iOS gets a real user gesture. */
+    const prep = currentPrepared();
+    if (prep) {
+      if (isLikelyIOS()) openImageInNewTab(prep.blob);
+      else triggerBrowserDownload(prep.blob, prep.filename);
       return;
     }
+
     setIsExporting(true);
-    setDownloadError(null);
-    /* iOS Safari blocks window.open after await unless we open a tab synchronously with the click. */
     let iosBlankTab = null;
     if (isLikelyIOS()) {
       try {
@@ -343,32 +429,7 @@ export function MoodscreenProvider({ children }) {
       }
     }
     try {
-      if (typeof document !== "undefined" && document.fonts?.ready) {
-        try {
-          await document.fonts.ready;
-        } catch {
-          /* ignore */
-        }
-      }
-      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-      const blob = await captureMoodscreenCardToPngBlob();
-
-      if (!blob || blob.size === 0) {
-        setDownloadError("Could not capture the card (empty image).");
-        return;
-      }
-
-      const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-      const filename = `moodscreen-${ts}.png`;
-
-      if (typeof navigator !== "undefined" && navigator.msSaveOrOpenBlob) {
-        navigator.msSaveOrOpenBlob(blob, filename);
-        if (iosBlankTab && !iosBlankTab.closed) iosBlankTab.close();
-        return;
-      }
-
-      /* iOS Safari often ignores <a download>; show the image in the tab we opened on click. */
+      const { blob, filename } = await captureNow();
       if (isLikelyIOS()) {
         const url = URL.createObjectURL(blob);
         if (iosBlankTab && !iosBlankTab.closed) {
@@ -379,7 +440,6 @@ export function MoodscreenProvider({ children }) {
         }
         return;
       }
-
       if (iosBlankTab && !iosBlankTab.closed) iosBlankTab.close();
       triggerBrowserDownload(blob, filename);
     } catch (e) {
@@ -392,106 +452,63 @@ export function MoodscreenProvider({ children }) {
         }
       }
       const msg = e && typeof e.message === "string" ? e.message : String(e);
-      const short =
-        msg.length > 0 && msg.length < 200
-          ? msg
-          : "Unknown error during export.";
       setDownloadError(
-        short.includes("timed out")
-          ? "Export took too long. Try again, or clear the profile photo and retry."
-          : `Export failed: ${short}`,
+        msg.includes("timed out")
+          ? "That took too long. Try again."
+          : `Export failed: ${msg.length < 160 ? msg : "Unknown error"}`,
       );
     } finally {
       setIsExporting(false);
     }
-  }, [isExporting]);
+  }, [isExporting, currentPrepared, captureNow]);
 
   /**
-   * Two-step share: (1) capture PNG async — user gesture consumed by await.
-   * (2) Second tap calls navigator.share synchronously — satisfies “user gesture” on all browsers.
-   * Payload includes image + text + link (Open Graph previews apply when others share your URL, not the PNG).
+   * One tap. If the pre-rendered file is current — which it is within half a
+   * second of the last edit — navigator.share runs synchronously off the tap
+   * and the sheet opens immediately.
    */
   const sharePng = useCallback(() => {
-    if (isExporting) return;
-    if (typeof document === "undefined" || !document.getElementById("moodscreen-card")) {
-      setDownloadError("Card preview is not ready — open the studio and try again.");
-      return;
-    }
-
-    const fv = formValueRef.current;
-    const snapshot = shareFormSnapshot(fv);
-    const pageUrl = normalizeShareUrl(fv?.link);
-
-    if (sharePreparedRef.current && shareSnapshotRef.current === snapshot) {
-      setDownloadError(null);
-      setShareHint(null);
-      const prep = sharePreparedRef.current;
-      void invokeNavigatorShare(prep)
-        .catch((e) => {
-          if (e && e.name === "AbortError") return;
-          console.warn("moodscreen share:", e);
-          const msg = e && typeof e.message === "string" ? e.message : String(e);
-          setDownloadError(
-            msg.includes("gesture") || msg.includes("user activation")
-              ? "Tap Share again after the image is ready."
-              : `Share failed: ${msg.length < 160 ? msg : "Unknown error"}`,
-          );
-        })
-        .finally(() => {
-          sharePreparedRef.current = null;
-          shareSnapshotRef.current = "";
-          setSharePrimed(false);
-        });
-      return;
-    }
-
-    setIsExporting(true);
     setDownloadError(null);
-    setShareHint(null);
+    const pageUrl = normalizeShareUrl(formValueRef.current?.link);
+    const text = `moodscreen — ${pageUrl}`;
+
+    const prep = currentPrepared();
+    if (prep) {
+      void invokeNavigatorShare({ file: prep.file, text, url: pageUrl }).catch((e) => {
+        if (e && e.name === "AbortError") return;
+        console.warn("moodscreen share:", e);
+        const msg = e && typeof e.message === "string" ? e.message : String(e);
+        setDownloadError(`Share failed: ${msg.length < 160 ? msg : "Unknown error"}`);
+      });
+      return;
+    }
+
+    /* The pre-render has not landed yet — capture, then open the sheet. Some
+     * browsers will refuse this one for want of a gesture; the next tap has
+     * the file and always works. */
+    if (isExporting) return;
+    setIsExporting(true);
     void (async () => {
       try {
-        if (typeof document !== "undefined" && document.fonts?.ready) {
-          try {
-            await document.fonts.ready;
-          } catch {
-            /* ignore */
-          }
-        }
-        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-        const blob = await captureMoodscreenCardToPngBlob();
-        if (!blob || blob.size === 0) {
-          setDownloadError("Could not capture the card (empty image).");
-          return;
-        }
-
-        const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-        const filename = `moodscreen-${ts}.png`;
+        const { blob, filename } = await captureNow();
         const file = new File([blob], filename, { type: "image/png" });
-        const text = `moodscreen — ${pageUrl}`;
-
-        sharePreparedRef.current = { file, text, url: pageUrl };
-        shareSnapshotRef.current = snapshot;
-        setSharePrimed(true);
-        setShareHint(
-          "Image ready — tap Share again to open Instagram, Messages, WhatsApp, etc.",
-        );
+        preparedRef.current = { key: exportKeyRef.current, blob, file, filename };
+        setShareReady(true);
+        await invokeNavigatorShare({ file, text, url: pageUrl });
       } catch (e) {
-        console.warn("moodscreen PNG share prepare failed:", e);
+        if (e && e.name === "AbortError") return;
+        console.warn("moodscreen share prepare failed:", e);
         const msg = e && typeof e.message === "string" ? e.message : String(e);
         setDownloadError(
-          msg.includes("timed out")
-            ? "Export took too long. Try again, or clear the profile photo and retry."
-            : `Could not prepare share: ${msg.length < 160 ? msg : "Unknown error"}`,
+          msg.includes("gesture") || msg.includes("user activation")
+            ? "Almost ready — tap Share once more."
+            : `Share failed: ${msg.length < 160 ? msg : "Unknown error"}`,
         );
-        sharePreparedRef.current = null;
-        shareSnapshotRef.current = "";
-        setSharePrimed(false);
       } finally {
         setIsExporting(false);
       }
     })();
-  }, [isExporting]);
+  }, [isExporting, currentPrepared, captureNow]);
 
   const copyLink = useCallback(async () => {
     setCopied(false);
@@ -506,27 +523,6 @@ export function MoodscreenProvider({ children }) {
     }
   }, [link]);
 
-  const cardProps = useMemo(
-    () => ({
-      name: (name || "Name").trim() || "Name",
-      initials: initials || null,
-      avatar: avatarUrl,
-      location: (location || "").trim(),
-      moodRows,
-      footerText: "",
-      activeWithin48h:
-        user?.id && profile?.last_active
-          ? isActiveWithin48h(profile.last_active)
-          : true,
-      darkMode: cardDarkMode !== false,
-      profileUsername:
-        typeof profile?.username === "string" && profile.username.trim()
-          ? profile.username.trim().toLowerCase()
-          : undefined,
-    }),
-    [name, initials, avatarUrl, location, moodRows, cardDarkMode, user?.id, profile?.last_active, profile?.username],
-  );
-
   const value = useMemo(
     () => ({
       formValue,
@@ -537,9 +533,9 @@ export function MoodscreenProvider({ children }) {
       isExporting,
       copied,
       downloadError,
-      shareHint,
-      sharePrimed,
-      cardProps,
+      shareReady,
+      moodscreenProps,
+      initials,
       storageHydrated: hydrated,
       storageNotice,
     }),
@@ -552,16 +548,20 @@ export function MoodscreenProvider({ children }) {
       isExporting,
       copied,
       downloadError,
-      shareHint,
-      sharePrimed,
-      cardProps,
+      shareReady,
+      moodscreenProps,
+      initials,
       hydrated,
       storageNotice,
     ],
   );
 
   return (
-    <MoodscreenContext.Provider value={value}>{children}</MoodscreenContext.Provider>
+    <MoodscreenContext.Provider value={value}>
+      {children}
+      {/* The node every capture photographs. Always mounted, never seen. */}
+      <MoodscreenExportSurface {...moodscreenProps} />
+    </MoodscreenContext.Provider>
   );
 }
 

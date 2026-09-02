@@ -4,7 +4,8 @@
  */
 
 import { MicroDecorSoft } from "./MicroDecor.jsx";
-import StatusCard from "./StatusCard.jsx";
+import Moodscreen from "./Moodscreen.jsx";
+import { SAMPLE_MOODSCREENS } from "../lib/sampleMoodscreens.js";
 
 function StatBlock({ label, value, sub, tint }) {
   return (
@@ -106,29 +107,13 @@ export default function ColorEnergySection() {
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                 <div className="sm:pr-6">
                   <CardPedestal accent="ring-[#e8705c]/25">
-                    <StatusCard
-                      name="Amina Okoro"
-                      initials="AO"
-                      location="Lagos"
-                      moodRows={[{ category: "🚀 building", quote: "Zipload" }]}
-                      activeWithin48h
-                      darkMode
-                    />
+                    <Moodscreen {...SAMPLE_MOODSCREENS[0]} width={300} />
                   </CardPedestal>
                 </div>
 
                 <div className="sm:pl-6 [transform:translateY(18px)]">
                   <CardPedestal accent="ring-violet-400/20">
-                    <StatusCard
-                      name="Leo Park"
-                      initials="LP"
-                      location="Seoul"
-                      moodRows={[
-                        { category: "🎧 listening", quote: "Frank Ocean · Blonde" },
-                      ]}
-                      activeWithin48h
-                      darkMode
-                    />
+                    <Moodscreen {...SAMPLE_MOODSCREENS[2]} width={300} />
                   </CardPedestal>
                 </div>
               </div>
@@ -136,16 +121,7 @@ export default function ColorEnergySection() {
               <div className="mt-6 sm:mt-8 sm:flex sm:justify-end">
                 <div className="w-full max-w-[420px] [transform:translateY(-10px)] sm:ml-auto">
                   <CardPedestal accent="ring-sky-400/20">
-                    <StatusCard
-                      name="Sofia Reyes"
-                      initials="SR"
-                      location="Remote"
-                      moodRows={[
-                        { category: "📊 working on", quote: "deep work · no meetings" },
-                      ]}
-                      activeWithin48h={false}
-                      darkMode
-                    />
+                    <Moodscreen {...SAMPLE_MOODSCREENS[3]} width={300} />
                   </CardPedestal>
                 </div>
               </div>

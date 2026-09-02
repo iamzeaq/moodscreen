@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import StatusCard from "../components/StatusCard.jsx";
-import { moodRowsFromEntries } from "../lib/moodCategories.js";
+import Moodscreen from "../components/Moodscreen.jsx";
+import { deriveMoodId, deriveStatement } from "../lib/moodscreenModel.js";
 import {
-  getInitialsFromName,
-  isActiveWithin48h,
   isReservedUsername,
   isUsernameSlugValid,
   normalizeUsernameSlug,
@@ -40,18 +38,15 @@ export default function PublicProfilePage() {
       const { data: ms } = await fetchMoodscreenForUser(profile.id);
       if (cancelled) return;
       const normalized = ms && typeof ms === "object" ? ms : normalizeStoredMoodscreen(null);
-      const moodRows = moodRowsFromEntries(normalized.moodEntries || []);
+      const entries = normalized.moodEntries || [];
       const name = (normalized.name || profile.username || slug).trim() || slug;
       setCard({
         name,
-        initials: getInitialsFromName(name),
-        avatar: normalized.avatarUrl || null,
         location: (normalized.location || profile.location || "").trim(),
-        moodRows,
-        footerText: "",
-        activeWithin48h: isActiveWithin48h(profile.last_active),
-        darkMode: normalized.cardDarkMode !== false,
-        profileUsername: profile.username,
+        mood: deriveMoodId(entries),
+        statement: deriveStatement(entries),
+        themeId: normalized.themeId,
+        username: profile.username,
       });
       setLoading(false);
     };
@@ -85,13 +80,15 @@ export default function PublicProfilePage() {
         >
           ← Home
         </Link>
-        <StatusCard {...card} />
+        <div className="flex justify-center">
+          <Moodscreen {...card} width={360} />
+        </div>
         <div className="cta-section">
-          <p className="cta-text">your turn</p>
+          <p className="cta-text">Your turn</p>
           <Link to="/create" className="cta-button">
-            create your moodscreen
+            Make a Moodscreen
           </Link>
-          <p className="cta-subtext">takes 10 seconds</p>
+          <p className="cta-subtext">Takes ten seconds</p>
         </div>
       </div>
     </div>

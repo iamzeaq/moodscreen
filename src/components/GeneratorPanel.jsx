@@ -1,6 +1,6 @@
 import { useMoodscreen } from "../context/MoodscreenContext.jsx";
 import { MicroCornerFrame, MicroDecorMesh } from "./MicroDecor.jsx";
-import StatusCard from "./StatusCard.jsx";
+import Moodscreen from "./Moodscreen.jsx";
 import StatusForm from "./StatusForm.jsx";
 
 /** Off-screen PNG capture + live preview + form — shared by home and /create */
@@ -14,9 +14,8 @@ export default function GeneratorPanel({ showHeader = true }) {
     isExporting,
     copied,
     downloadError,
-    shareHint,
-    sharePrimed,
-    cardProps,
+    shareReady,
+    moodscreenProps,
     storageNotice,
   } = useMoodscreen();
 
@@ -90,17 +89,9 @@ export default function GeneratorPanel({ showHeader = true }) {
                       onClick={sharePng}
                       disabled={isExporting}
                       className="generator-btn generator-btn-ghost"
-                      title={
-                        sharePrimed
-                          ? "Open the share sheet (image + your link)"
-                          : "Step 1: prepare image — then tap again to share"
-                      }
+                      title="Open the share sheet with the image and your link"
                     >
-                      {isExporting
-                        ? "Preparing…"
-                        : sharePrimed
-                          ? "Share now"
-                          : "Share"}
+                      {isExporting && !shareReady ? "Preparing…" : "Drop your Moodscreen"}
                     </button>
                     <button
                       type="button"
@@ -108,25 +99,13 @@ export default function GeneratorPanel({ showHeader = true }) {
                       disabled={isExporting}
                       className="generator-btn generator-btn-primary"
                     >
-                      {isExporting ? "Preparing…" : "Download PNG"}
+                      {isExporting && !shareReady ? "Preparing…" : "Save the image"}
                     </button>
                   </div>
-                  <p className="text-[0.7rem] leading-snug text-meta lg:hidden">
-                    Tap Share twice: first prepares your card, second opens the system
-                    sheet (image + link). Download saves the PNG locally.
-                  </p>
                 </div>
                 {downloadError ? (
                   <p className="max-w-[min(100%,24rem)] text-xs leading-relaxed text-red-600/90 dark:text-red-400/90">
                     {downloadError}
-                  </p>
-                ) : null}
-                {shareHint ? (
-                  <p
-                    className="max-w-[min(100%,24rem)] text-xs leading-relaxed text-secondary"
-                    role="status"
-                  >
-                    {shareHint}
                   </p>
                 ) : null}
                 {storageNotice ? (
@@ -139,15 +118,11 @@ export default function GeneratorPanel({ showHeader = true }) {
                 ) : null}
               </div>
 
-              <div
-                className={[
-                  "generator-preview-rim",
-                  cardProps.darkMode === false
-                    ? "generator-preview-rim--light hover:[&_.status-card-ios]:shadow-[0_24px_48px_-18px_rgba(0,0,0,0.22)]"
-                    : "hover:[&_.status-card-ios]:shadow-[0_28px_56px_-14px_rgba(0,0,0,0.55)]",
-                ].join(" ")}
-              >
-                <StatusCard isExportTarget {...cardProps} />
+              {/* The preview. The node that actually gets photographed is the
+                * off-screen twin the provider mounts, so nothing here has to
+                * be export-safe. */}
+              <div className="generator-preview-rim flex justify-center">
+                <Moodscreen {...moodscreenProps} width={360} />
               </div>
             </section>
           </div>

@@ -65,6 +65,20 @@ body {
 }
 
 /**
+ * The outgoing half of the mood cross-fade (motion budget, moment 1). The
+ * incoming glyph is simply there; this fades the one it replaced. A keyframe
+ * rather than a transition because the element is mounted mid-fade.
+ */
+@keyframes moodscreen-glyph-out {
+  from {
+    opacity: 0.16;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/**
  * Motion budget (CLAUDE.md §6).
  *
  * Under reduced motion the mood cross-fade and the digit roll survive as

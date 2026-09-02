@@ -109,3 +109,16 @@ if (!serifUrl) throw new Error("no woff2 url in the Instrument Serif `latin` sli
 
 const serifBuf = Buffer.from(await (await get(serifUrl)).arrayBuffer());
 await emit("InstrumentSerif-400.woff2", serifBuf);
+
+/* ---------- Clash Display — display face for the `sharp` theme ---------- */
+const clashCss = await (
+  await get("https://api.fontshare.com/v2/css?f[]=clash-display@600&display=swap")
+).text();
+
+const clash = uprightFaces(clashCss);
+if (clash.length !== 1) throw new Error(`expected 1 Clash Display weight, got ${clash.length}`);
+
+for (const face of clash) {
+  const buf = Buffer.from(await (await get(face.url)).arrayBuffer());
+  await emit(`ClashDisplay-${face.weight}.woff2`, buf);
+}

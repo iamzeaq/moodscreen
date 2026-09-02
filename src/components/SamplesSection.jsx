@@ -3,52 +3,10 @@
  */
 
 import { MicroDecorMesh, MicroSectionRule } from "./MicroDecor.jsx";
-import StatusCard from "./StatusCard.jsx";
+import Moodscreen from "./Moodscreen.jsx";
+import { SAMPLE_MOODSCREENS } from "../lib/sampleMoodscreens.js";
 
-const SAMPLES = [
-  {
-    name: "Isaac Twekyard",
-    initials: "IT",
-    location: "Lagos",
-    moodRows: [{ category: "🚀 building", quote: "something interesting" }],
-    activeWithin48h: true,
-  },
-  {
-    name: "Amina Okoro",
-    initials: "AO",
-    location: "Lagos",
-    moodRows: [{ category: "📦 shipping", quote: "a quiet release" }],
-    activeWithin48h: true,
-  },
-  {
-    name: "Leo Park",
-    initials: "LP",
-    location: "Paris",
-    moodRows: [{ category: "🎧 listening", quote: "Frank Ocean on repeat" }],
-    activeWithin48h: true,
-  },
-  {
-    name: "Sam Okonkwo",
-    initials: "SO",
-    location: "Remote",
-    moodRows: [{ category: "📊 working on", quote: "deep work · no pings" }],
-    activeWithin48h: false,
-  },
-  {
-    name: "Rei Tanaka",
-    initials: "RT",
-    location: "Tokyo",
-    moodRows: [{ category: "🧠 thinking", quote: "planning the next launch" }],
-    activeWithin48h: true,
-  },
-  {
-    name: "Sofia Reyes",
-    initials: "SR",
-    location: "Mexico City",
-    moodRows: [{ category: "📝 writing", quote: "reading, writing, repeat" }],
-    activeWithin48h: true,
-  },
-];
+const SAMPLES = SAMPLE_MOODSCREENS.slice(0, 6);
 
 export default function SamplesSection() {
   return (
@@ -76,16 +34,9 @@ export default function SamplesSection() {
         </div>
 
         <div className="mx-auto mt-10 grid max-w-5xl grid-cols-1 items-start gap-6 sm:grid-cols-2 xl:grid-cols-3">
-          {SAMPLES.map((s, i) => (
-            <div key={`${s.name}-${i}`} className="flex justify-center">
-              <StatusCard
-                name={s.name}
-                initials={s.initials}
-                location={s.location}
-                moodRows={s.moodRows}
-                activeWithin48h={s.activeWithin48h}
-                darkMode
-              />
+          {SAMPLES.map((s) => (
+            <div key={s.username} className="flex justify-center">
+              <Moodscreen {...s} width={300} />
             </div>
           ))}
         </div>

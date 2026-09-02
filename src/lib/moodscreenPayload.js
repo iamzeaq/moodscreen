@@ -67,7 +67,7 @@ export function normalizeStoredMoodscreen(raw) {
       name: undefined,
       location: undefined,
       link: undefined,
-      cardDarkMode: true,
+      themeId: undefined,
       avatarUrl: null,
       moodEntries: legacyToMoodEntries({}),
       created_at: null,
@@ -89,7 +89,9 @@ export function normalizeStoredMoodscreen(raw) {
     name: "name" in raw && typeof raw.name === "string" ? raw.name : undefined,
     location: "location" in raw && typeof raw.location === "string" ? raw.location : undefined,
     link: "link" in raw && typeof raw.link === "string" ? raw.link : undefined,
-    cardDarkMode: raw.cardDarkMode !== false,
+    /* Records written before themes existed have no themeId; the context
+     * falls back to the default rather than guessing from cardDarkMode. */
+    themeId: typeof raw.themeId === "string" ? raw.themeId : undefined,
     avatarUrl:
       typeof raw.avatarUrl === "string" && !String(raw.avatarUrl).startsWith("blob:")
         ? raw.avatarUrl
