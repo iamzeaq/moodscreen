@@ -11,16 +11,18 @@ import Input, { UsernameInput } from "../components/ui/Input.jsx";
 import Logo, { LOGO_MOODS } from "../components/brand/Logo.jsx";
 import Wordmark from "../components/brand/Wordmark.jsx";
 import Moodscreen from "../components/Moodscreen.jsx";
-import MoodscreenExportSurface from "../components/MoodscreenExportSurface.jsx";
+import MoodscreenExportSurface, { nodeIdsFor } from "../components/MoodscreenExportSurface.jsx";
 import { MOODS, DEFAULT_ACCENT, accentForMood } from "../lib/moods.js";
 import { accentVars, applyAccent } from "../lib/color.js";
 import { LONGEST_STATEMENT, SAMPLE_MOODSCREENS } from "../lib/sampleMoodscreens.js";
 import {
   STATEMENT_MAX_CHARS,
   STATEMENT_STEPS,
+  statementFit,
   statementSize,
 } from "../lib/statementFit.js";
 import { THEME_LIST, getTheme } from "../themes/index.js";
+import { SURFACES } from "../themes/surface.js";
 import {
   captureMoodscreenBlob,
   ensureMoodscreenFontsReady,
@@ -164,16 +166,26 @@ const DURATIONS = [
   ["layout", "var(--dur-layout)"],
 ];
 
-/** One statement per step of the character-count ladder, at the step's length. */
+/** One statement per step of the §7.6 ladder, at the step's length. */
 const LADDER_SAMPLES = [
   "Shipping the renderer",
-  "Three hours into a bug that turned out to be a missing await keyword",
-  "Rewriting the export path so that the preview and the posted image can never drift " +
-    "apart again, which has cost me two evenings",
+  "Three hours into a bug that was a missing await",
+  "Rewriting the export path so the preview and the posted image can never drift",
   LONGEST_STATEMENT,
 ];
 
+/**
+ * One hour inside each §7.4 band. Without this the night tint is something you
+ * would have to stay up until 10pm to review.
+ */
+const HOURS = [
+  { id: "day", label: "10:20 · day", at: "2026-09-01T10:20:00" },
+  { id: "evening", label: "19:30 · evening", at: "2026-09-01T19:30:00" },
+  { id: "night", label: "03:14 · night", at: "2026-09-01T03:14:00" },
+];
+
 const KS_EXPORT_ID = "kitchen-sink-export";
+const KS_EXPORT_IDS = nodeIdsFor(KS_EXPORT_ID);
 
 /* -------------------------------------------------------------------- page */
 
@@ -183,6 +195,9 @@ export default function KitchenSinkPage() {
   const [shifted, setShifted] = useState(false);
 
   const [themeId, setThemeId] = useState("classic");
+  const [surface, setSurface] = useState("colour");
+  const [hourId, setHourId] = useState("day");
+  const [exportMode, setExportMode] = useState("default");
   const [statement, setStatement] = useState(
     "Rewriting the export path so the preview and the image can never drift",
   );
@@ -203,9 +218,10 @@ export default function KitchenSinkPage() {
     mood: moodId,
     statement,
     name: "Isaac Twekyard",
-    location: "Lagos",
     username: "isaac",
     themeId,
+    surface,
+    at: HOURS.find((h) => h.id === hourId)?.at,
   };
 
   /** Capture the off-screen twin and hand the PNG straight to the browser. */
@@ -215,7 +231,7 @@ export default function KitchenSinkPage() {
     setExporting(true);
     setExportNote(null);
     try {
-      const node = document.getElementById(KS_EXPORT_ID);
+      const node = document.getElementById(KS_EXPORT_IDS[exportMode]);
       await ensureMoodscreenFontsReady(getTheme(themeId));
       const blob = await captureMoodscreenBlob(node);
       const url = URL.createObjectURL(blob);
@@ -229,7 +245,8 @@ export default function KitchenSinkPage() {
 
       const bitmap = await createImageBitmap(blob);
       setExportNote(
-        `${bitmap.width}x${bitmap.height}, ${(blob.size / 1024).toFixed(0)} kB — ${themeId}, ${moodId}`,
+        `${bitmap.width}x${bitmap.height}, ${(blob.size / 1024).toFixed(0)} kB — ` +
+          `${exportMode}, ${themeId}, ${moodId} on ${surface}`,
       );
       bitmap.close?.();
     } catch (e) {
@@ -238,7 +255,7 @@ export default function KitchenSinkPage() {
       exportingRef.current = false;
       setExporting(false);
     }
-  }, [themeId, moodId]);
+  }, [themeId, moodId, surface, exportMode]);
 
   return (
     <main className="mx-auto flex max-w-content flex-col gap-12 px-6 py-16">
@@ -289,29 +306,59 @@ export default function KitchenSinkPage() {
       {/* ----------------------------------------------------- moodscreen */}
       <Section
         title="The Moodscreen"
-        note="One component renders this and the exported PNG. The card always lays out at 360x450 and is scaled for display, so the export is that same node at 3x — 1080x1350 — and cannot drift from what you see."
+        note="One component renders this and the exported PNG. The card always lays out at 540x540 and is scaled for display, so the export is that same node at 3x — 1620x1620 — and cannot drift from what you see. Mood, surface and hour are three separate inputs: the mood owns the hue, the user owns the arrangement, the timestamp owns the tint."
       >
         <div className="flex flex-wrap items-start gap-8">
           <Moodscreen {...live} width={360} />
 
           <div className="flex min-w-[18rem] flex-1 flex-col gap-6">
             <div className="flex flex-col gap-3">
-              <p className="text-11 text-faint">theme</p>
-              <div className="flex gap-2">
+              <p className="text-11 text-faint">theme — type only</p>
+              <div className="flex flex-wrap gap-2">
                 {THEME_LIST.map((t) => (
                   <Button
                     key={t.id}
                     variant={t.id === themeId ? "primary" : "secondary"}
                     onClick={() => setThemeId(t.id)}
                   >
-                    {t.label}
+                    {t.name}
                   </Button>
                 ))}
               </div>
               <p className="text-12 text-faint">
-                {getTheme(themeId).font.faceFamily} · surface {getTheme(themeId).surface} ·
-                texture {getTheme(themeId).texture} · glyph {getTheme(themeId).glyph}
+                {getTheme(themeId).font.faceFamily} · {getTheme(themeId).font.case} · texture{" "}
+                {getTheme(themeId).texture} · scale [{getTheme(themeId).font.scale.join(", ")}]
               </p>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <p className="text-11 text-faint">surface — the user's second choice</p>
+              <div className="flex flex-wrap gap-2">
+                {SURFACES.map((s) => (
+                  <Button
+                    key={s.id}
+                    variant={s.id === surface ? "primary" : "secondary"}
+                    onClick={() => setSurface(s.id)}
+                  >
+                    {s.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <p className="text-11 text-faint">hour — automatic, no toggle in the product</p>
+              <div className="flex flex-wrap gap-2">
+                {HOURS.map((h) => (
+                  <Button
+                    key={h.id}
+                    variant={h.id === hourId ? "primary" : "secondary"}
+                    onClick={() => setHourId(h.id)}
+                  >
+                    {h.label}
+                  </Button>
+                ))}
+              </div>
             </div>
 
             <div className="flex flex-col gap-3">
@@ -344,9 +391,28 @@ export default function KitchenSinkPage() {
                 className="w-full rounded-sm border border-line bg-panel px-3 py-2 font-ui text-15 text-fg outline-none placeholder:text-faint hover:border-line-strong focus:border-accent focus:bg-[var(--accent-tint)]"
               />
               <p className="text-11 text-faint">
-                {statement.length} / {STATEMENT_MAX_CHARS} characters — set at{" "}
-                {statementSize(statement, getTheme(themeId).font)}px
+                {statement.length} / {STATEMENT_MAX_CHARS} characters — step{" "}
+                {statementFit(statement)}, {statementSize(statement, getTheme(themeId).font)}px in{" "}
+                {getTheme(themeId).name}
               </p>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <p className="text-11 text-faint">export mode</p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  ["default", "Default · backdrop"],
+                  ["sticker", "Sticker · transparent"],
+                ].map(([id, label]) => (
+                  <Button
+                    key={id}
+                    variant={id === exportMode ? "primary" : "secondary"}
+                    onClick={() => setExportMode(id)}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-4">
@@ -354,7 +420,7 @@ export default function KitchenSinkPage() {
                 Save the image
               </Button>
               <Button variant="secondary" onClick={() => setStatement(LONGEST_STATEMENT)}>
-                Fill to 180
+                Fill to {STATEMENT_MAX_CHARS}
               </Button>
             </div>
             {exportNote ? (
@@ -365,41 +431,65 @@ export default function KitchenSinkPage() {
           </div>
         </div>
 
-        {/* The node the capture photographs — full chroma and the die-cut
-          * border, parked outside the viewport. */}
-        <MoodscreenExportSurface {...live} id={KS_EXPORT_ID} />
+        {/* The two nodes the capture photographs — full chroma, one per
+          * export mode, parked outside the viewport. */}
+        <MoodscreenExportSurface {...live} idPrefix={KS_EXPORT_ID} />
       </Section>
 
       <Section
-        title="Every mood"
-        note="Ten moods in the theme selected above. Ink is a dark tone from each mood's own hue family — never black, never white."
+        title="Thirty looks"
+        note="Ten moods times three surfaces, from two taps. Every ink is derived in OKLCH from the mood's own hue at a clamped lightness — never hand-picked, never black, never white — so an eleventh mood costs nothing. `npm run check:contrast` walks all ninety of these against the three hours."
       >
-        <div className="flex flex-wrap gap-6">
-          {MOODS.map((m, i) => (
-            <Moodscreen
-              key={m.id}
-              mood={m.id}
-              themeId={themeId}
-              statement={SAMPLE_MOODSCREENS[i % SAMPLE_MOODSCREENS.length].statement}
-              name={SAMPLE_MOODSCREENS[i % SAMPLE_MOODSCREENS.length].name}
-              location={SAMPLE_MOODSCREENS[i % SAMPLE_MOODSCREENS.length].location}
-              username={SAMPLE_MOODSCREENS[i % SAMPLE_MOODSCREENS.length].username}
-              width={200}
-            />
+        <div className="flex flex-col gap-8">
+          {SURFACES.map((s) => (
+            <div key={s.id} className="flex flex-col gap-3">
+              <p className="text-11 text-faint">{s.label}</p>
+              <div className="flex flex-wrap gap-4">
+                {MOODS.map((m, i) => (
+                  <div key={m.id} className="flex flex-col gap-2">
+                    <Moodscreen
+                      mood={m.id}
+                      themeId={themeId}
+                      surface={s.id}
+                      at={live.at}
+                      statement={SAMPLE_MOODSCREENS[i % SAMPLE_MOODSCREENS.length].statement}
+                      name={SAMPLE_MOODSCREENS[i % SAMPLE_MOODSCREENS.length].name}
+                      username={SAMPLE_MOODSCREENS[i % SAMPLE_MOODSCREENS.length].username}
+                      width={180}
+                    />
+                    <span className="text-11 text-faint">{m.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       </Section>
 
       <Section
-        title="Both themes"
-        note="A theme is data. classic fills the card with the mood and sets it in Instrument Serif with the glyph cropped by the edge; sharp inverts to the mood's ink and sets it in Clash Display with no watermark. Neither required a line of the renderer."
+        title="The night tint"
+        note="The card's tone shifts with the hour it was posted — same hue throughout, only lightness moves. Automatic and unconfigurable: the card is of a moment, it isn't set. A 3am thought should look like a 3am thought."
+      >
+        <div className="flex flex-wrap gap-6">
+          {HOURS.map((h) => (
+            <div key={h.id} className="flex flex-col gap-3">
+              <Moodscreen {...live} at={h.at} width={240} />
+              <span className="text-11 text-faint">{h.label}</span>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section
+        title="The five free themes"
+        note="A theme owns type and nothing else — no colour, no surface, no chrome. Each carries its own four-step size ladder, because the font-size number sets the em box and not the letters inside it: Bebas Neue at 50 and Silkscreen at 30 occupy the same space. None of them required a line of the renderer."
       >
         <div className="flex flex-wrap gap-8">
           {THEME_LIST.map((t) => (
             <div key={t.id} className="flex flex-col gap-3">
               <Moodscreen {...live} themeId={t.id} width={300} />
               <span className="text-11 text-faint">
-                {t.label} — {t.tier}
+                {t.name} — {t.font.faceFamily}, {t.tier}
               </span>
             </div>
           ))}
@@ -408,7 +498,7 @@ export default function KitchenSinkPage() {
 
       <Section
         title="Fitting the statement"
-        note="Step down by character count; never truncate, never overflow. The input is hard-capped at 180 so nothing lands below the smallest step."
+        note="statementFit returns an index, not a size; the renderer reads theme.font.scale[index]. Short statements get bigger, which rewards punchiness without ever telling anyone to be punchy. The input is hard-capped at 100 — five lines at the smallest step is the ceiling."
       >
         <div className="flex flex-wrap gap-6">
           {LADDER_SAMPLES.map((s, i) => (
@@ -416,14 +506,16 @@ export default function KitchenSinkPage() {
               <Moodscreen
                 mood={moodId}
                 themeId={themeId}
+                surface={surface}
+                at={live.at}
                 statement={s}
                 name="Isaac Twekyard"
-                location="Lagos"
                 username="isaac"
                 width={240}
               />
               <span className="text-11 text-faint">
-                {s.length} chars — {STATEMENT_STEPS[i].size}px
+                {s.length} chars — step {i}, up to {STATEMENT_STEPS[i]},{" "}
+                {getTheme(themeId).font.scale[i]}px
               </span>
             </div>
           ))}

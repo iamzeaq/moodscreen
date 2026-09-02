@@ -1,34 +1,51 @@
 /**
- * Fitting the statement — CLAUDE.md §4.
+ * Fitting the statement — CLAUDE.md §7.6.
  *
- * User text is unpredictable length. Step down by character count; do not
- * truncate and do not overflow. The sizes are for the card's 1x layout,
- * which is always 360x450 — that is what makes a fixed ladder possible at
- * all, and what makes the export a pure 3x scale of what is on screen.
+ * This returns an *index*, not a size. The renderer reads
+ * `theme.font.scale[index]`, because the font-size number sets the em box and
+ * not the letters inside it: Bebas Neue at 50 and Press Start 2P at 24 occupy
+ * the same space. A single global ladder would overflow half the themes and
+ * shrink the rest, so the four steps live in each theme and this only says
+ * which of them a given statement earns.
+ *
+ * Short statements get bigger. That rewards punchiness without ever telling
+ * anyone to be punchy.
  */
 
-/** Hard cap on the input, so nothing lands below the smallest step. */
-export const STATEMENT_MAX_CHARS = 180;
+/**
+ * Hard cap — §7.6. Five lines at the smallest step is the ceiling; past that
+ * the type drops below what survives WhatsApp's compression and starts
+ * crowding the lockup.
+ */
+export const STATEMENT_MAX_CHARS = 100;
 
-const LADDER = [
-  { upTo: 42, size: 34 },
-  { upTo: 80, size: 26 },
-  { upTo: 130, size: 20 },
-  { upTo: Infinity, size: 17 },
-];
+/** Upper character bound of each step, in `theme.font.scale` order. */
+const BREAKS = [20, 45, 75, STATEMENT_MAX_CHARS];
 
 /** The ladder as data, for the kitchen sink and for tests. */
-export const STATEMENT_STEPS = LADDER;
+export const STATEMENT_STEPS = BREAKS;
 
 /**
  * @param {string} statement
- * @param {{ scale?: number }} [theme] the active theme's `font`
- * @returns {number} px, at 1x
+ * @returns {number} index into `theme.font.scale`, 0..3
  */
-export function statementSize(statement, { scale = 1 } = {}) {
+export function statementFit(statement) {
   const n = (statement ?? "").length;
-  const step = LADDER.find((s) => n <= s.upTo) ?? LADDER[LADDER.length - 1];
-  return Math.round(step.size * scale * 100) / 100;
+  const i = BREAKS.findIndex((upTo) => n <= upTo);
+  return i === -1 ? BREAKS.length - 1 : i;
+}
+
+/**
+ * The px size for a statement under a theme. The renderer's one call.
+ *
+ * @param {string} statement
+ * @param {{ scale?: number[] }} [font] the active theme's `font`
+ * @returns {number} px, at the card's 1x layout size
+ */
+export function statementSize(statement, { scale } = {}) {
+  const ladder = Array.isArray(scale) && scale.length ? scale : BREAKS.map(() => 24);
+  const index = statementFit(statement);
+  return ladder[Math.min(index, ladder.length - 1)];
 }
 
 /** Trim to the cap without cutting mid-word where it can be helped. */

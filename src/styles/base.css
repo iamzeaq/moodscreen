@@ -79,6 +79,23 @@ body {
 }
 
 /**
+ * The live dot (motion budget, moment 2). `scale 1 -> 1.15`, 2.4s, infinite.
+ *
+ * Transform only, so it stays off the paint path — this runs forever on every
+ * Moodscreen on the wall at once, and anything that touched layout there would
+ * cost frames on exactly the mid-range Android §6 is written for.
+ */
+@keyframes moodscreen-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+}
+
+/**
  * Motion budget (CLAUDE.md §6).
  *
  * Under reduced motion the mood cross-fade and the digit roll survive as

@@ -53,12 +53,48 @@
   font-display: swap;
 }
 
-/* ---------- Clash Display — display, `sharp` theme ---------- */
+/* ---------- Silkscreen — display, `nokia` theme ---------- */
 
 @font-face {
-  font-family: "Clash Display";
-  src: url("/fonts/ClashDisplay-600.woff2") format("woff2");
-  font-weight: 600;
+  font-family: "Silkscreen";
+  src: url("/fonts/Silkscreen-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ---------- Bebas Neue — display, `impact` theme ---------- */
+
+@font-face {
+  font-family: "Bebas Neue";
+  src: url("/fonts/BebasNeue-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ---------- JetBrains Mono ----------
+ *
+ * Two jobs: the `terminal` theme's statement at 500, and every piece of small
+ * metadata on every Moodscreen at 400 (§7.5 sets the timestamp, the name and
+ * the mood label in mono). The metadata is why this one face is not lazy —
+ * a system mono stack would render differently on each device, and since the
+ * export happens on the user's own machine, that difference would ship inside
+ * the PNG.
+ */
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/JetBrainsMono-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/JetBrainsMono-500.woff2") format("woff2");
+  font-weight: 500;
   font-style: normal;
   font-display: swap;
 }

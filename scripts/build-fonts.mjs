@@ -8,10 +8,14 @@
  * ships from our own origin as woff2.
  *
  * Sources (fetched once, at build time, never at runtime):
- *   Switzer          — Fontshare, weights 400/500/600/700
- *   Instrument Serif — Google Fonts, `latin` slice only
+ *   Switzer          — Fontshare, weights 400/500/600/700, the interface family
+ *   Instrument Serif — Google Fonts, the `classic` theme
+ *   Silkscreen       — Google Fonts, the `nokia` theme
+ *   Bebas Neue       — Google Fonts, the `impact` theme
+ *   JetBrains Mono   — Google Fonts, the `terminal` theme and all card metadata
  *
- * Both are then subset to the glyph set below with harfbuzz (subset-font).
+ * All OFL or Fontshare, all free to embed in a commercial product. Each is
+ * then subset to the glyph set below with harfbuzz (subset-font).
  */
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -42,6 +46,13 @@ const CHARSET = [
   "™℗←→−×÷",
 ].join("");
 
+/**
+ * For faces that simply do not have the wider coverage. Subsetting a pixel
+ * font against accents it never drew produces a smaller file and identical
+ * tofu, so there is no point pretending otherwise.
+ */
+const BASIC_LATIN = range(0x0020, 0x007e);
+
 function range(from, to) {
   let s = "";
   for (let c = from; c <= to; c += 1) s += String.fromCodePoint(c);
@@ -54,9 +65,9 @@ async function get(url) {
   return res;
 }
 
-async function emit(name, source) {
+async function emit(name, source, charset = CHARSET) {
   const before = source.length;
-  const subset = await subsetFont(source, CHARSET, { targetFormat: "woff2" });
+  const subset = await subsetFont(source, charset, { targetFormat: "woff2" });
   await writeFile(path.join(OUT, name), subset);
   const pct = Math.round((1 - subset.length / before) * 100);
   console.log(
@@ -94,31 +105,36 @@ for (const face of switzer) {
   await emit(`Switzer-${face.weight}.woff2`, buf);
 }
 
-/* ---------- Instrument Serif — display face for the `classic` theme ---------- */
-const gCss = await (
-  await get("https://fonts.googleapis.com/css2?family=Instrument+Serif&display=swap")
-).text();
+/* ---------- The Google-hosted faces ----------
+ *
+ * Silkscreen, Bebas Neue and JetBrains Mono, all OFL and all free to embed in
+ * a commercial product. Fetched here at build time and served from our own
+ * origin — the CDN link itself is what §4 forbids, not the foundry.
+ *
+ * Silkscreen is the one exception to the shared charset: it is a pixel face
+ * with no Latin Extended coverage at all, so it is subset against whatever it
+ * actually has rather than against a list it would mostly miss.
+ */
+const GOOGLE_FACES = [
+  { file: "InstrumentSerif-400.woff2", family: "Instrument Serif", weight: 400 },
+  { file: "Silkscreen-400.woff2", family: "Silkscreen", weight: 400, charset: BASIC_LATIN },
+  { file: "BebasNeue-400.woff2", family: "Bebas Neue", weight: 400 },
+  { file: "JetBrainsMono-400.woff2", family: "JetBrains Mono", weight: 400 },
+  { file: "JetBrainsMono-500.woff2", family: "JetBrains Mono", weight: 500 },
+];
 
-const latin = [...gCss.matchAll(/\/\*\s*([\w-]+)\s*\*\/\s*@font-face\s*\{([\s\S]*?)\}/g)].find(
-  ([, subset]) => subset === "latin",
-);
-if (!latin) throw new Error("no `latin` slice in the Instrument Serif stylesheet");
+for (const face of GOOGLE_FACES) {
+  const query = `family=${face.family.replace(/ /g, "+")}:wght@${face.weight}`;
+  const css = await (await get(`https://fonts.googleapis.com/css2?${query}&display=swap`)).text();
 
-const serifUrl = (latin[2].match(/url\((https:[^)]+\.woff2)\)/) || [])[1];
-if (!serifUrl) throw new Error("no woff2 url in the Instrument Serif `latin` slice");
+  const latin = [...css.matchAll(/\/\*\s*([\w-]+)\s*\*\/\s*@font-face\s*\{([\s\S]*?)\}/g)].find(
+    ([, subset]) => subset === "latin",
+  );
+  if (!latin) throw new Error(`no \`latin\` slice in the ${face.family} stylesheet`);
 
-const serifBuf = Buffer.from(await (await get(serifUrl)).arrayBuffer());
-await emit("InstrumentSerif-400.woff2", serifBuf);
+  const url = (latin[2].match(/url\((https:[^)]+\.woff2)\)/) || [])[1];
+  if (!url) throw new Error(`no woff2 url in the ${face.family} \`latin\` slice`);
 
-/* ---------- Clash Display — display face for the `sharp` theme ---------- */
-const clashCss = await (
-  await get("https://api.fontshare.com/v2/css?f[]=clash-display@600&display=swap")
-).text();
-
-const clash = uprightFaces(clashCss);
-if (clash.length !== 1) throw new Error(`expected 1 Clash Display weight, got ${clash.length}`);
-
-for (const face of clash) {
-  const buf = Buffer.from(await (await get(face.url)).arrayBuffer());
-  await emit(`ClashDisplay-${face.weight}.woff2`, buf);
+  const buf = Buffer.from(await (await get(url)).arrayBuffer());
+  await emit(face.file, buf, face.charset);
 }

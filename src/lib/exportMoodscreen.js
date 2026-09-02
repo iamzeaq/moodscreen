@@ -5,17 +5,27 @@
  * the background, the type colours, the borders and the font stack, which is
  * exactly the drift §7 forbids. None of that is here.
  *
- * Instead there is a second <Moodscreen> mounted off-screen with
- * `forExport`, and this module photographs it. Same component, same layout,
- * same 360x450 box — captured at pixelRatio 3 for the 1080x1350 the spec
- * asks for. The only differences are the two the spec names, and they live
- * in the renderer, not here.
+ * Instead there are <Moodscreen>s mounted off-screen with `forExport`, and
+ * this module photographs one of them. Same component, same layout, same
+ * 540x540 box — captured at pixelRatio 3 for the 1620x1620 §7.8 asks for. The
+ * only differences are the ones the spec names, and they live in the renderer
+ * and its export wrappers, not here.
  *
- * The background is left transparent so the rounded corners stay cut. With
- * the die-cut border that makes the file read as a sticker when it lands on
- * a photo in stories.
+ * Two modes, and the default is the one with a backdrop. That is a
+ * deliverability decision rather than an aesthetic one: WhatsApp converts to
+ * JPEG, which has no transparency, so a transparent file comes back with
+ * blocks where the bow should be. `sticker` is for IG and Snap, where
+ * transparency survives and the screen genuinely sits on the person's photo.
  */
-import { BASE_HEIGHT, BASE_WIDTH } from "../components/Moodscreen.jsx";
+import { BASE_SIZE } from "../components/Moodscreen.jsx";
+import { EXPORT_NODE_IDS } from "../components/MoodscreenExportSurface.jsx";
+
+/** §7.8 — `default` carries the backdrop, `sticker` is cut to the path. */
+export const DEFAULT_EXPORT_MODE = "default";
+
+export function exportNodeId(mode = DEFAULT_EXPORT_MODE) {
+  return EXPORT_NODE_IDS[mode] ?? EXPORT_NODE_IDS[DEFAULT_EXPORT_MODE];
+}
 
 const CAPTURE_TIMEOUT_MS = 20000;
 
@@ -41,9 +51,12 @@ export async function ensureMoodscreenFontsReady(theme) {
   const face = theme?.font;
   const wanted = [
     face ? `${face.weight} 34px "${face.faceFamily}"` : null,
-    '400 12px "Switzer"',
-    '500 13px "Switzer"',
-    '600 15px "Switzer"',
+    /* §7.5 sets the timestamp, the name and the mood label in mono, so the
+     * card draws with this face on every theme, not just `terminal`. */
+    '400 12px "JetBrains Mono"',
+    '600 13px "Switzer"',
+    '700 15px "Switzer"',
+    '500 15px "Switzer"',
   ].filter(Boolean);
 
   await Promise.allSettled(wanted.map((f) => document.fonts.load(f)));
@@ -77,14 +90,14 @@ function getFontEmbedCss(node) {
 }
 
 /**
- * @param {HTMLElement} node the 360x450 card node, unscaled
+ * @param {HTMLElement} node the 540x540 export node, unscaled
  * @returns {Promise<Blob>}
  */
 export async function captureMoodscreenBlob(node, { pixelRatio = 3 } = {}) {
   if (!node) throw new Error("No Moodscreen to export.");
 
-  const width = node.offsetWidth || BASE_WIDTH;
-  const height = node.offsetHeight || BASE_HEIGHT;
+  const width = node.offsetWidth || BASE_SIZE;
+  const height = node.offsetHeight || BASE_SIZE;
   if (width < 4 || height < 4) throw new Error("The Moodscreen has no layout yet.");
 
   const { toBlob } = await import("html-to-image");
@@ -98,7 +111,9 @@ export async function captureMoodscreenBlob(node, { pixelRatio = 3 } = {}) {
       pixelRatio,
       width,
       height,
-      /* Transparent, so the die-cut corners are really cut. */
+      /* Left transparent either way. In `default` the backdrop is a real
+       * element inside the captured node, so it paints itself; in `sticker`
+       * transparency outside the screen path is the entire point. */
       backgroundColor: undefined,
       cacheBust: false,
       skipFonts: false,

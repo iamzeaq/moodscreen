@@ -46,6 +46,10 @@ export default function PublicProfilePage() {
         mood: deriveMoodId(entries),
         statement: deriveStatement(entries),
         themeId: normalized.themeId,
+        surface: normalized.surface,
+        /* §7.4 — the tint belongs to the hour it was written, not the hour a
+         * stranger opens it. */
+        at: normalized.updated_at || normalized.created_at,
         username: profile.username,
       });
       setLoading(false);

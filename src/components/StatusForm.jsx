@@ -15,9 +15,9 @@ function hasSecondSlotContent(entries) {
 }
 
 /**
- * Theme picker. Replaces the old dark-preview switch, which stopped meaning
- * anything the moment the Moodscreen became theme-driven — the theme decides
- * the surface now, not a boolean.
+ * Theme picker. A theme owns type and nothing else (§7.7), so this chooses a
+ * typeface and never a colour. The surface — the user's other choice — has its
+ * own control; the two are deliberately not merged.
  */
 function ThemePicker({ value, onChange, labelledBy }) {
   return (
@@ -44,7 +44,7 @@ function ThemePicker({ value, onChange, labelledBy }) {
               transitionTimingFunction: "var(--ease)",
             }}
           >
-            {t.label}
+            {t.name}
           </button>
         );
       })}

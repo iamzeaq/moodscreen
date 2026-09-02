@@ -10,6 +10,7 @@ import {
 } from "../lib/moodscreenPayload.js";
 import { sanitizeMoodEntries } from "../lib/moodscreenValidation.js";
 import { DEFAULT_THEME_ID, isThemeId } from "../themes/index.js";
+import { DEFAULT_SURFACE, isSurfaceId } from "../themes/surface.js";
 import { supabase } from "../lib/supabaseClient.js";
 
 /** Primary guest key (launch) */
@@ -46,6 +47,9 @@ export function serializeMoodscreenState(state, meta = {}) {
     entries: standardEntriesFromMoodEntries(moodEntries),
     link: typeof state.link === "string" ? state.link : "",
     themeId: isThemeId(state.themeId) ? state.themeId : DEFAULT_THEME_ID,
+    /* §7.2 — the second of the user's two choices. Stored beside the theme
+     * rather than inside it: a theme owns type only. */
+    surface: isSurfaceId(state.surface) ? state.surface : DEFAULT_SURFACE,
     avatarUrl:
       typeof state.avatarUrl === "string" && !state.avatarUrl.startsWith("blob:")
         ? state.avatarUrl

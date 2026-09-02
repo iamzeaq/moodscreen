@@ -35,6 +35,7 @@ import {
   exportFilename,
 } from "../lib/exportMoodscreen.js";
 import { DEFAULT_THEME_ID, getTheme, isThemeId } from "../themes/index.js";
+import { DEFAULT_SURFACE, isSurfaceId } from "../themes/surface.js";
 
 /** How long after the last edit to re-render the export blob. */
 const PRERENDER_DEBOUNCE_MS = 400;
@@ -138,6 +139,8 @@ const DEFAULT_FORM = {
   location: "Lagos",
   link: "",
   themeId: DEFAULT_THEME_ID,
+  /** §7.2 — the user's second choice, alongside the mood. */
+  surface: DEFAULT_SURFACE,
   avatarUrl: null,
 };
 
@@ -151,6 +154,16 @@ export function MoodscreenProvider({ children }) {
   const [moodEntries, setMoodEntries] = useState(DEFAULT_MOOD_ENTRIES);
   const [link, setLink] = useState(DEFAULT_FORM.link);
   const [themeId, setThemeId] = useState(DEFAULT_FORM.themeId);
+  const [surface, setSurface] = useState(DEFAULT_FORM.surface);
+
+  /**
+   * The hour the Moodscreen is *of* — §7.4's input, and the timestamp §7.5
+   * prints. Loaded from storage rather than read off the clock, so reopening a
+   * 3am card at noon still shows a 3am card; restamped only when the statement
+   * itself changes, because that is when it becomes a different moment.
+   */
+  const [postedAt, setPostedAt] = useState(() => new Date().toISOString());
+  const keepStampRef = useRef(true);
   const [avatarUrl, setAvatarUrl] = useState(DEFAULT_FORM.avatarUrl);
 
   const [hydrated, setHydrated] = useState(false);
@@ -169,9 +182,15 @@ export function MoodscreenProvider({ children }) {
     setLocation(n.location !== undefined ? n.location : DEFAULT_FORM.location);
     setLink(n.link !== undefined ? n.link : DEFAULT_FORM.link);
     setThemeId(isThemeId(n.themeId) ? n.themeId : DEFAULT_FORM.themeId);
+    setSurface(isSurfaceId(n.surface) ? n.surface : DEFAULT_FORM.surface);
     setAvatarUrl(n.avatarUrl ?? null);
     setMoodEntries(normalizeMoodEntries(n.moodEntries));
     if (n.created_at) persistMetaRef.current.created_at = n.created_at;
+
+    /* Hydration is not a new moment, so the stamp that arrives with the data
+     * survives the state change that follows it. */
+    keepStampRef.current = true;
+    setPostedAt(n.updated_at || n.created_at || new Date().toISOString());
   }, []);
 
   /** Load guest / remote when auth or storage epoch changes */
@@ -212,6 +231,16 @@ export function MoodscreenProvider({ children }) {
     };
   }, [sessionReady, user?.id, authVersion, applyFromObject]);
 
+  /* A changed statement is a new moment; everything else on the form is not. */
+  useEffect(() => {
+    if (!hydrated) return;
+    if (keepStampRef.current) {
+      keepStampRef.current = false;
+      return;
+    }
+    setPostedAt(new Date().toISOString());
+  }, [moodEntries, hydrated]);
+
   const formValue = useMemo(
     () => ({
       name,
@@ -219,9 +248,10 @@ export function MoodscreenProvider({ children }) {
       moodEntries,
       link,
       themeId,
+      surface,
       avatarUrl,
     }),
-    [name, location, moodEntries, link, themeId, avatarUrl],
+    [name, location, moodEntries, link, themeId, surface, avatarUrl],
   );
 
   formValueRef.current = formValue;
@@ -236,6 +266,8 @@ export function MoodscreenProvider({ children }) {
     if (Object.prototype.hasOwnProperty.call(patch, "link")) setLink(patch.link);
     if (Object.prototype.hasOwnProperty.call(patch, "themeId") && isThemeId(patch.themeId))
       setThemeId(patch.themeId);
+    if (Object.prototype.hasOwnProperty.call(patch, "surface") && isSurfaceId(patch.surface))
+      setSurface(patch.surface);
     if (Object.prototype.hasOwnProperty.call(patch, "avatarUrl"))
       setAvatarUrl(patch.avatarUrl);
   }, []);
@@ -324,11 +356,19 @@ export function MoodscreenProvider({ children }) {
       mood: deriveMoodId(moodEntries),
       statement: deriveStatement(moodEntries),
       name: (name || "").trim(),
-      location: (location || "").trim(),
       username,
+      avatarUrl: avatarUrl ?? "",
       themeId,
+      surface,
+      /**
+       * §7.4 — the night tint is derived from the timestamp already being
+       * stored, not from a toggle and not from the clock. A card written at
+       * 3am keeps looking like 3am when it is opened at noon, which is the
+       * whole point of the card being *of a moment*.
+       */
+      at: postedAt,
     }),
-    [moodEntries, name, location, username, themeId],
+    [moodEntries, name, username, avatarUrl, themeId, surface, postedAt],
   );
 
   /* ------------------------------------------------------ export + share */

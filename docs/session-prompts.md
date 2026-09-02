@@ -23,8 +23,8 @@ Work happens on `redesign`.
 |---|---|
 | 1 — Tokens and primitives | done, `fb51b22` |
 | 2 — The Moodscreen renderer | done, `bde899c` |
-| 2b — Renderer rework for the new §7 | next |
-| 3 — Hero | ahead |
+| 2b — Renderer rework for the new §7 | done |
+| 3 — Hero | next |
 | 4 — Pulse and wall | ahead |
 | 5 — Remaining sections and the public page | ahead |
 

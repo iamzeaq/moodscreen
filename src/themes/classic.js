@@ -1,14 +1,13 @@
 /**
- * classic — free.
+ * classic — free. Instrument Serif.
  *
- * The mood colour carries the whole card and a serif does the talking. This
- * is the default and the one most Moodscreens will be, so it takes the
- * signature treatment: full mood fill, grain, and the mood's own glyph
- * blown up and cropped by the card edge.
+ * The one that does not shout. A serif depends on the contrast between its
+ * capitals and its lowercase, so this is a `sentence` theme: uppercasing it
+ * would flatten exactly the thing it is chosen for.
  */
 export const classic = {
   id: "classic",
-  label: "Classic",
+  name: "Classic",
   tier: "free",
 
   font: {
@@ -16,13 +15,11 @@ export const classic = {
     /** The exact family name `document.fonts.load()` has to be given. */
     faceFamily: "Instrument Serif",
     weight: 400,
-    /** Multiplies the statement size the character-count scale picks. */
-    scale: 1,
+    case: "sentence",
     tracking: "-0.01em",
+    lineHeight: 1.15,
+    scale: [46, 36, 28, 22],
   },
 
-  surface: "mood",
-  texture: "grain",
-  glyph: "watermark",
-  radius: 16,
+  texture: "glyph",
 };

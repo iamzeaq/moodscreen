@@ -208,6 +208,13 @@
   --font-ui: "Switzer", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-display: "Instrument Serif", ui-serif, Georgia, serif;
 
+  /* Card metadata only — §7.5 sets the timestamp, the name and the mood label
+   * in mono. Self-hosted rather than a system stack because the export runs on
+   * the user's own machine, so a system face would bake that machine's idea of
+   * monospace into the PNG. Not for site chrome: §12 forbids mono as
+   * decoration for small labels. */
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
   /* ---------- Type scale, with tracking and leading attached ----------
    * `text-34` carries -0.02em without anyone remembering to add it. */
   --text-11: 11px;

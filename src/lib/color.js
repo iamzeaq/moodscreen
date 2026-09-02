@@ -156,6 +156,36 @@ export function scaleChroma(hex, factor) {
   return oklchToHex({ ...lch, c: lch.c * factor });
 }
 
+/**
+ * The same hue at an absolute OKLCH lightness, with chroma capped rather than
+ * carried. This is how every surface ink is derived (CLAUDE.md §7.2): same hue
+ * family, clamped lightness, never hand-picked. The cap is what keeps a dark
+ * tone of a vivid hue from reading as a second saturated colour on the card.
+ */
+export function toneOf(hex, lightness, maxChromaAllowed) {
+  const { c, h } = hexToOklch(hex);
+  return oklchToHex({ l: clamp(lightness, 0, 1), c: Math.min(c, maxChromaAllowed), h });
+}
+
+/** WCAG relative luminance, for the contrast guard in themes/surface.js. */
+function luminance(hex) {
+  const [r, g, b] = hexToRgb(hex).map(srgbToLinear);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/**
+ * WCAG contrast ratio, 1..21.
+ *
+ * Thirty mood x surface combinations times three night bands is ninety pairs
+ * of colours that nobody is going to eyeball individually, so the ink
+ * derivation checks itself against this rather than trusting the ladder.
+ */
+export function contrastRatio(a, b) {
+  const la = luminance(a);
+  const lb = luminance(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
 /** `rgb(r g b / a)` — used for tints and rings, where alpha is correct. */
 export function withAlpha(hex, alpha) {
   const [r, g, b] = hexToRgb(hex).map((c) => Math.round(c * 255));

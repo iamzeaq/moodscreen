@@ -6,7 +6,13 @@
  * a short list on purpose. The thirty real ones the wall needs are a separate
  * job, and they come out of the database, not out of here.
  *
- * Every mood appears at least once, and both free themes are represented.
+ * Every mood appears once, all five free themes are represented, all three
+ * surfaces are represented, and the timestamps are spread across the three
+ * night bands (§7.4) so the tint is visible in a row of them rather than
+ * something you have to wait until 10pm to see.
+ *
+ * Timestamps are deliberately written without a zone: they parse as local
+ * time, so the band a sample lands in is the same on every machine.
  */
 export const SAMPLE_MOODSCREENS = [
   {
@@ -16,6 +22,8 @@ export const SAMPLE_MOODSCREENS = [
     location: "Lagos",
     username: "isaac",
     themeId: "classic",
+    surface: "colour",
+    at: "2026-09-01T10:20:00",
   },
   {
     mood: "coding",
@@ -23,7 +31,9 @@ export const SAMPLE_MOODSCREENS = [
     name: "Amina Okoro",
     location: "Lagos",
     username: "amina",
-    themeId: "sharp",
+    themeId: "terminal",
+    surface: "ink",
+    at: "2026-09-01T23:41:00",
   },
   {
     mood: "learning",
@@ -32,6 +42,8 @@ export const SAMPLE_MOODSCREENS = [
     location: "Paris",
     username: "leo",
     themeId: "classic",
+    surface: "paper",
+    at: "2026-09-01T15:05:00",
   },
   {
     mood: "thinking",
@@ -39,7 +51,9 @@ export const SAMPLE_MOODSCREENS = [
     name: "Sam Okonkwo",
     location: "Remote",
     username: "sam",
-    themeId: "sharp",
+    themeId: "nokia",
+    surface: "ink",
+    at: "2026-09-01T03:14:00",
   },
   {
     mood: "creating",
@@ -47,7 +61,9 @@ export const SAMPLE_MOODSCREENS = [
     name: "Sofia Reyes",
     location: "Mexico City",
     username: "sofia",
-    themeId: "classic",
+    themeId: "clean",
+    surface: "paper",
+    at: "2026-09-01T19:30:00",
   },
   {
     mood: "hiring",
@@ -55,7 +71,9 @@ export const SAMPLE_MOODSCREENS = [
     name: "Rei Tanaka",
     location: "Tokyo",
     username: "rei",
-    themeId: "sharp",
+    themeId: "impact",
+    surface: "colour",
+    at: "2026-09-01T09:00:00",
   },
   {
     mood: "traveling",
@@ -63,15 +81,19 @@ export const SAMPLE_MOODSCREENS = [
     name: "Chidi Nwosu",
     location: "Nairobi",
     username: "chidi",
-    themeId: "classic",
+    themeId: "impact",
+    surface: "paper",
+    at: "2026-09-01T06:45:00",
   },
   {
     mood: "speaking",
-    statement: "On stage at 4pm, talking about the thing I said I would never build",
+    statement: "On stage at 4pm, talking about the thing I said I'd never build",
     name: "Maya Bergström",
     location: "Berlin",
     username: "maya",
-    themeId: "sharp",
+    themeId: "clean",
+    surface: "colour",
+    at: "2026-09-01T20:10:00",
   },
   {
     mood: "available",
@@ -79,7 +101,9 @@ export const SAMPLE_MOODSCREENS = [
     name: "Tom Alvarez",
     location: "Lisbon",
     username: "tom",
-    themeId: "classic",
+    themeId: "nokia",
+    surface: "colour",
+    at: "2026-09-01T12:00:00",
   },
   {
     mood: "offline",
@@ -87,12 +111,12 @@ export const SAMPLE_MOODSCREENS = [
     name: "Nia Hassan",
     location: "Cape Town",
     username: "nia",
-    themeId: "sharp",
+    themeId: "terminal",
+    surface: "ink",
+    at: "2026-09-01T22:55:00",
   },
 ];
 
-/** A 180-character statement — the hard cap, for checking the smallest step. */
+/** Exactly 100 characters — the §7.6 cap, for checking the smallest step. */
 export const LONGEST_STATEMENT =
-  "Somewhere in the fourth hour of a refactor that was supposed to take twenty minutes, " +
-  "reading my own code from last spring and wondering who hurt that person so badly that " +
-  "they wrote this.";
+  "Hour four of a refactor that was meant to take twenty minutes and I am still reading my own old code";
