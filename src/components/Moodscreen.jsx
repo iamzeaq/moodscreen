@@ -19,14 +19,9 @@
  * owns it). All three arrive as data and meet in resolveSurface.
  */
 import { useEffect, useRef, useState } from "react";
-import Logo, {
-  MARK_INK_HEIGHT,
-  MARK_INK_LEFT,
-  MARK_INK_TOP,
-  MARK_INK_WIDTH,
-} from "./brand/Logo.jsx";
+import Logo, { MARK_INK_HEIGHT, MARK_INK_WIDTH } from "./brand/Logo.jsx";
 import { getMood, MOODS } from "../lib/moods.js";
-import { SAFE_INSET, SCREEN_CORNER, screenPathAt } from "../lib/screen.js";
+import { safeInset, safeSideInset, SCREEN_CORNER, screenPathAt } from "../lib/screen.js";
 import { statementSize } from "../lib/statementFit.js";
 import { applyCase, getTheme } from "../themes/index.js";
 import { DEFAULT_SURFACE, resolveSurface } from "../themes/surface.js";
@@ -34,8 +29,29 @@ import { DEFAULT_SURFACE, resolveSurface } from "../themes/surface.js";
 /** The card's one true size. Export is this at 3x. */
 export const BASE_SIZE = 540;
 
-/** §7.1 — the corners curve inward, so content sits further in than a rect. */
-const SAFE = Math.round(BASE_SIZE * SAFE_INSET);
+/**
+ * §7.1 — the corners curve inward, so content sits further in than on a rect.
+ *
+ * Vertically that is one number. Horizontally it is not, and assuming it was is
+ * what put the timestamp half off the card: the shape is ~30 units narrower at
+ * the height of the top row than it is at the middle, so a square inset that
+ * fits the statement does not fit the row above it. Each of the three groups
+ * therefore measures its own side inset off the path, over the band of heights
+ * it actually occupies — see safeSideInset.
+ */
+const SAFE_V = safeInset(BASE_SIZE);
+
+/** Row heights, so the bands below are the ones the layout really produces. */
+const TIMESTAMP_H = 12; /* 12px mono, line-height 1 */
+const LOCKUP_H = 18; /* the 17px mark, which is taller than its 15px text */
+
+const BAND_TOP = [SAFE_V, SAFE_V + TIMESTAMP_H];
+const BAND_BOTTOM = [BASE_SIZE - SAFE_V - LOCKUP_H, BASE_SIZE - SAFE_V];
+const BAND_MIDDLE = [BAND_TOP[1], BAND_BOTTOM[0]];
+
+const PAD_TOP = safeSideInset(...BAND_TOP, BASE_SIZE);
+const PAD_MIDDLE = safeSideInset(...BAND_MIDDLE, BASE_SIZE);
+const PAD_BOTTOM = safeSideInset(...BAND_BOTTOM, BASE_SIZE);
 
 /** Baked once: the clip every layer inside the screen is cut to. */
 const CLIP = `path("${screenPathAt(BASE_SIZE)}")`;
@@ -52,39 +68,46 @@ const WATERMARK_OPACITY = 0.16;
 
 /**
  * The watermark — §7.3 layer 6, the mood's own face bleeding off the
- * bottom-right corner.
+ * bottom-right corner. §7.5 sizes it at 300px.
  *
- * Positioned in the mark's own units rather than against its element box.
- * That distinction is the whole bug: the 40-unit viewBox is mostly empty
- * margin, so an offset that looks like a tenth of the element is most of a
- * feature, and earlier attempts sliced the face straight through the eyes and
- * left two bars that read as a rendering fault. With `tight` the element is
- * the face, and the two numbers below say plainly where the screen's corner
- * cuts it.
+ * The previous attempt cut the face at 55% of its width, which sounds like a
+ * crop and is in fact a decapitation: the right eye went over the edge
+ * entirely, and what stayed on the card was one vertical bar and half a
+ * horizontal one — two blobs, not a face. §7.3 asks for the face *cropped by
+ * the edge*, and the test of that is whether it still reads as a face, so both
+ * eyes and the mouth stay on the card and the crop takes the margin around
+ * them.
  *
- * The cut runs between the eyes and through the mouth, so what stays on the
- * card is one whole eye and most of the mouth — a face continuing past the
- * edge rather than a face with pieces missing.
+ * The face is addressed in fractions of itself, via `tight`, where the element
+ * is the drawn face rather than the 40-unit viewBox that is mostly empty
+ * margin. An offset against that box would be wildly unfaithful to where the
+ * features actually are, which is how the first version went wrong.
  */
-const MARK_UNIT = 13;
-
-/** Between the eyes: the left one stays, the right one goes over the edge. */
-const WATERMARK_CUT_X = 20.5;
-/** Through the mouth, low enough to leave most of its stroke on the card. */
-const WATERMARK_CUT_Y = 28;
-
-const WATERMARK_WIDTH = MARK_INK_WIDTH * MARK_UNIT;
-const WATERMARK_HEIGHT = MARK_INK_HEIGHT * MARK_UNIT;
+const WATERMARK_SIZE = 300;
 
 /**
- * The cut point is placed on the screen's *drawn* corner, not the box's.
+ * Where the screen's drawn corner falls across the face, as a fraction of it.
+ *
+ * Far enough out that the face is unmistakably running off the corner rather
+ * than sitting inside it, near enough in that both eyes clear the edge with
+ * room. What the crop actually takes is the bottom of the mouth on the moods
+ * whose mouth dips lowest — `speaking`'s circle, `building`'s and `hiring`'s
+ * curves — which is the part of a face you can lose and still read.
+ */
+const WATERMARK_CORNER_X = 0.78;
+const WATERMARK_CORNER_Y = 0.82;
+
+const WATERMARK_WIDTH = WATERMARK_SIZE;
+const WATERMARK_HEIGHT = (WATERMARK_SIZE * MARK_INK_HEIGHT) / MARK_INK_WIDTH;
+
+/**
+ * The corner it is placed against is the screen's *drawn* one, not the box's.
  * Aiming at the box corner puts it about a tenth of the card outside the
- * shape, where the clip throws it away — which is how the mouth disappeared
- * and left a lone bar behind.
+ * shape, where the clip throws it away.
  */
 const CORNER = BASE_SIZE * SCREEN_CORNER;
-const WATERMARK_LEFT = CORNER - (WATERMARK_CUT_X - MARK_INK_LEFT) * MARK_UNIT;
-const WATERMARK_TOP = CORNER - (WATERMARK_CUT_Y - MARK_INK_TOP) * MARK_UNIT;
+const WATERMARK_LEFT = CORNER - WATERMARK_CORNER_X * WATERMARK_WIDTH;
+const WATERMARK_TOP = CORNER - WATERMARK_CORNER_Y * WATERMARK_HEIGHT;
 
 /** §7.5 — ink alphas for the three quiet tiers. */
 const INK_TIMESTAMP = 0.7;
@@ -420,10 +443,17 @@ export default function Moodscreen({
         ) : null}
         <Grain />
 
+        {/* The content column is inset vertically only. Each group below sets
+          * its own side inset, measured off the drawn path at the heights it
+          * occupies, because a single square inset cannot clear the corners
+          * and leave the statement its width. */}
         <div
           style={{
             position: "absolute",
-            inset: SAFE,
+            top: SAFE_V,
+            bottom: SAFE_V,
+            left: 0,
+            right: 0,
             display: "flex",
             flexDirection: "column",
           }}
@@ -432,7 +462,11 @@ export default function Moodscreen({
           <div
             style={{
               flex: "none",
+              height: TIMESTAMP_H,
+              paddingLeft: PAD_TOP,
+              paddingRight: PAD_TOP,
               display: "flex",
+              alignItems: "center",
               justifyContent: "flex-end",
               fontFamily: "var(--font-mono)",
               fontSize: 12,
@@ -449,6 +483,8 @@ export default function Moodscreen({
             style={{
               flex: "1 1 auto",
               minHeight: 0,
+              paddingLeft: PAD_MIDDLE,
+              paddingRight: PAD_MIDDLE,
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
@@ -524,7 +560,19 @@ export default function Moodscreen({
             </p>
           </div>
 
-          <div style={{ flex: "none" }}>
+          <div
+            style={{
+              flex: "none",
+              height: LOCKUP_H,
+              paddingLeft: PAD_BOTTOM,
+              paddingRight: PAD_BOTTOM,
+              display: "flex",
+              alignItems: "center",
+              /* §7.5 — the lockup is centred; a corner reads as a watermark
+               * someone forgot to remove. */
+              justifyContent: "center",
+            }}
+          >
             <Lockup moodId={moodId} username={username} ink={ink} />
           </div>
         </div>

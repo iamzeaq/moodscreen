@@ -16,8 +16,32 @@
  */
 import { contrastRatio, hexToOklch, toneOf } from "../lib/color.js";
 
-/** `ink` — near-black, per §7.2. Never pure #000; nothing sits darker. */
-export const INK_SURFACE = "#0D0D10";
+/**
+ * The ground the screen is seen against: tokens.css `--canvas`, which is both
+ * the page background and the backdrop the default export centres the card on
+ * (§7.8).
+ */
+export const EXPORT_CANVAS = "#08080A";
+
+const CANVAS_L = hexToOklch(EXPORT_CANVAS).l;
+
+/**
+ * `ink` — near-black per §7.2, but near-black *relative to the backdrop* and
+ * not in absolute terms, which is the distinction the first pass missed.
+ *
+ * §7.2's literal #0D0D10 sits at OKLCH lightness 0.16 against a canvas at
+ * 0.135. That is a contrast ratio of 1.05: on a lit screen the two are the
+ * same colour, so the default export came back as a black square with a lockup
+ * floating in it and no visible screen. The bow, the corners, the whole outline
+ * that §7.1 calls the brand — none of it separated from the ground.
+ *
+ * So the value is derived from the backdrop rather than picked against it: the
+ * same hue, lifted far enough in lightness that the edge reads as an edge. It
+ * is still unmistakably a dark card, and it is still never #000.
+ */
+const INK_LIFT = 0.09;
+
+export const INK_SURFACE = toneOf(EXPORT_CANVAS, CANVAS_L + INK_LIFT, 0.02);
 
 /** `paper` — bone. The one surface whose field ignores the mood. */
 export const PAPER_SURFACE = "#F4F2EC";
@@ -89,7 +113,14 @@ const FIELD_SHIFT = { colour: 1, ink: 0.35, paper: 0.4 };
  * still darkens visibly across the three bands; none of them darkens into
  * illegibility.
  */
-const FIELD_MIN_L = { colour: 0.52, ink: 0, paper: 0.86 };
+const FIELD_MIN_L = {
+  colour: 0.52,
+  /* The night shift may darken the ink field, but never back into the backdrop
+   * it was just lifted clear of — a 3am card still has to be a visible object.
+   * Two thirds of the lift is the floor, so the hour still reads. */
+  ink: CANVAS_L + INK_LIFT * 0.66,
+  paper: 0.86,
+};
 
 /**
  * The bar the ink search aims for, and the one it actually guarantees.
