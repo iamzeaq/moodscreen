@@ -19,9 +19,14 @@
  * owns it). All three arrive as data and meet in resolveSurface.
  */
 import { useEffect, useRef, useState } from "react";
-import Logo from "./brand/Logo.jsx";
+import Logo, {
+  MARK_INK_HEIGHT,
+  MARK_INK_LEFT,
+  MARK_INK_TOP,
+  MARK_INK_WIDTH,
+} from "./brand/Logo.jsx";
 import { getMood, MOODS } from "../lib/moods.js";
-import { SAFE_INSET, screenPathAt } from "../lib/screen.js";
+import { SAFE_INSET, SCREEN_CORNER, screenPathAt } from "../lib/screen.js";
 import { statementSize } from "../lib/statementFit.js";
 import { applyCase, getTheme } from "../themes/index.js";
 import { DEFAULT_SURFACE, resolveSurface } from "../themes/surface.js";
@@ -46,25 +51,40 @@ const GRAIN_OPACITY = 0.07;
 const WATERMARK_OPACITY = 0.16;
 
 /**
- * The watermark's size and offsets — and why it is not cropped.
+ * The watermark — §7.3 layer 6, the mood's own face bleeding off the
+ * bottom-right corner.
  *
- * §7.3 asks for the face cropped by the screen edge. That works for a glyph
- * with mass to spare at its edges. This mark has none: it is three thin
- * strokes around a lot of empty space, and its extremities *are* its features,
- * so a crop deep enough to read as a crop takes an eye with it. Cropping 15%
- * of the ink width removed 70% of the right eye and left the two stray bars
- * that read as a rendering fault. There is no offset that crops this face and
- * keeps it a face.
+ * Positioned in the mark's own units rather than against its element box.
+ * That distinction is the whole bug: the 40-unit viewBox is mostly empty
+ * margin, so an offset that looks like a tenth of the element is most of a
+ * feature, and earlier attempts sliced the face straight through the eyes and
+ * left two bars that read as a rendering fault. With `tight` the element is
+ * the face, and the two numbers below say plainly where the screen's corner
+ * cuts it.
  *
- * So it sits whole, low and right — off-centre enough not to read as the
- * placeholder §7.5 warns a centred glyph becomes, and large enough at 161 x
- * 247px to be a deliberate mark rather than an artifact. If it has to be
- * cropped, the mark needs a filled variant to crop into; that is a drawing
- * job, not an offset.
+ * The cut runs between the eyes and through the mouth, so what stays on the
+ * card is one whole eye and most of the mouth — a face continuing past the
+ * edge rather than a face with pieces missing.
  */
-const WATERMARK_SIZE = 460;
-const WATERMARK_RIGHT = -138;
-const WATERMARK_BOTTOM = -28;
+const MARK_UNIT = 13;
+
+/** Between the eyes: the left one stays, the right one goes over the edge. */
+const WATERMARK_CUT_X = 20.5;
+/** Through the mouth, low enough to leave most of its stroke on the card. */
+const WATERMARK_CUT_Y = 28;
+
+const WATERMARK_WIDTH = MARK_INK_WIDTH * MARK_UNIT;
+const WATERMARK_HEIGHT = MARK_INK_HEIGHT * MARK_UNIT;
+
+/**
+ * The cut point is placed on the screen's *drawn* corner, not the box's.
+ * Aiming at the box corner puts it about a tenth of the card outside the
+ * shape, where the clip throws it away — which is how the mouth disappeared
+ * and left a lone bar behind.
+ */
+const CORNER = BASE_SIZE * SCREEN_CORNER;
+const WATERMARK_LEFT = CORNER - (WATERMARK_CUT_X - MARK_INK_LEFT) * MARK_UNIT;
+const WATERMARK_TOP = CORNER - (WATERMARK_CUT_Y - MARK_INK_TOP) * MARK_UNIT;
 
 /** §7.5 — ink alphas for the three quiet tiers. */
 const INK_TIMESTAMP = 0.7;
@@ -200,16 +220,22 @@ function Watermark({ moodId, leaving = false }) {
       aria-hidden="true"
       style={{
         position: "absolute",
-        right: WATERMARK_RIGHT,
-        bottom: WATERMARK_BOTTOM,
-        width: WATERMARK_SIZE,
-        height: WATERMARK_SIZE,
+        left: WATERMARK_LEFT,
+        top: WATERMARK_TOP,
+        width: WATERMARK_WIDTH,
+        height: WATERMARK_HEIGHT,
         pointerEvents: "none",
         opacity: leaving ? 0 : WATERMARK_OPACITY,
         animation: leaving ? "moodscreen-glyph-out 240ms var(--ease) forwards" : undefined,
       }}
     >
-      <Logo mood={moodId} size={WATERMARK_SIZE} />
+      <Logo
+        mood={moodId}
+        tight
+        width={WATERMARK_WIDTH}
+        height={WATERMARK_HEIGHT}
+        size={WATERMARK_WIDTH}
+      />
     </div>
   );
 }

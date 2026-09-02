@@ -67,6 +67,24 @@ export const SCREEN_PATH_UNIT = SCREEN_PATH.replace(/-?\d*\.?\d+/g, (n) =>
 );
 
 /**
+ * Where the drawn shape's bottom-right corner actually is, as a fraction of
+ * the box.
+ *
+ * Nowhere near the box's own corner: the curve pulls in to about 90% on both
+ * axes, so a layer aimed at (100%, 100%) is aimed at a point outside the
+ * screen and gets clipped away entirely. That is not a rounding error, it is
+ * roughly a tenth of the card on each axis — enough to lose a whole feature of
+ * anything positioned against it, which is exactly what happened to the
+ * watermark's mouth.
+ *
+ * The midpoint of the corner's cubic, which by the path's symmetry is the same
+ * value on both axes.
+ */
+const cubicMid = (a, b, c, d) => 0.125 * a + 0.375 * b + 0.375 * c + 0.125 * d;
+
+export const SCREEN_CORNER = cubicMid(380, 373, 357, 325) / SCREEN_VIEWBOX;
+
+/**
  * The path scaled to a px box, for CSS `clip-path: path(...)`.
  *
  * Clipping this way rather than with `clip-path: url(#id)` is deliberate.
