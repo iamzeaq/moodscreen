@@ -268,7 +268,11 @@ Not CSS `border-radius` — the bow can't be expressed that way. Use the path
 as fill and as a `clipPath` for every layer inside it.
 
 Because the corners curve inward, content sits further in than on a
-rectangle: **safe area is 13% inset on all sides.**
+rectangle — and not by a constant. The shape is ~30 units narrower at the
+height of the top row than at its middle, so one square inset either clips
+that row or shrinks the statement. **Measure the side inset off the path, per
+row, over the band of heights that row occupies.** The rows nearest the
+corners land near 13%; the statement's band is wider.
 
 ### 7.2 Two user choices
 
@@ -282,8 +286,14 @@ decoration: violet is always thinking, red is always speaking.
 | Surface | Card | Text |
 |---|---|---|
 | `colour` (default) | the mood hue | a dark tone of the same hue |
-| `ink` | near-black `#0D0D10` | a lightened tone of the mood |
+| `ink` | near-black, lifted clear of `--canvas` | a lightened tone of the mood |
 | `paper` | bone `#F4F2EC` | a darkened tone of the mood |
+
+`ink` is near-black *relative to the ground it is seen against*, not in
+absolute terms: derived from `--canvas` at +0.09 OKLCH lightness, never
+hand-picked. A fixed near-black hex sits at 1.03:1 against the §7.8 backdrop,
+which makes the outline — the thing §7.1 calls the brand — invisible in the
+export.
 
 Ten moods × three surfaces = thirty looks from two taps.
 
@@ -523,13 +533,18 @@ logo.
 ```
 building   M15 25 Q20 30 25 25
 thinking   M15 27 H22
-coding     M15 27 H25   (eyes become horizontal: M12 16 H17, M23 16 H28)
+coding     M15 27 H25   (eyes become horizontal: M10 16 H19, M21 16 H30)
 speaking   circle cx20 cy27 r3
 offline    M15 27 Q20 23 25 27
 ```
 
 Stroke 3 at 40×40, `stroke-linecap: round`, `currentColor`. Bump to 3.6 below
 24px or it thins out. Favicon: fixed `thinking` mouth.
+
+Eyes are strokes, not dots, and that is a ratio, not a shape: every eye stays
+at least 3× its own stroke width at the smallest size the mark is drawn — 17px
+in the lockup, where the stroke bumps to 3.6. Vertical eyes run 12 units,
+`coding`'s horizontal pair 9.
 
 Wordmark: `moodscreen`, lowercase, one word, tracking `-0.03em`, Switzer
 Semibold. Lock the mark's height to the wordmark's x-height, not cap height.
