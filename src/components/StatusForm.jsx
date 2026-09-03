@@ -13,6 +13,7 @@
  * link, and the location the public page shows. §1 is emphatic about the link
  * being one, maximum — resist every request for a second field.
  */
+import AvatarField from "./editor/AvatarField.jsx";
 import MoodStrip from "./editor/MoodStrip.jsx";
 import StatementField from "./editor/StatementField.jsx";
 import SurfaceControl from "./editor/SurfaceControl.jsx";
@@ -83,6 +84,7 @@ export default function StatusForm({
     statement = "",
     surface = DEFAULT_SURFACE,
     themeId = DEFAULT_THEME_ID,
+    avatarUrl = "",
     updated_at: at,
   } = value;
 
@@ -127,6 +129,14 @@ export default function StatusForm({
           labelledBy="status-form-theme-label"
           value={themeId}
           onChange={(next) => onChange({ themeId: next })}
+        />
+      </Field>
+
+      <Field label="Photo" id="status-form-avatar-label">
+        <AvatarField
+          value={avatarUrl || ""}
+          name={name}
+          onChange={(next) => onChange({ avatarUrl: next })}
         />
       </Field>
 

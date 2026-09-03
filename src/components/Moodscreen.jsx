@@ -474,6 +474,16 @@ export default function Moodscreen({
   const size = statementSize(statement, theme.font);
   const scale = width / BASE_SIZE;
 
+  /**
+   * Who the statement belongs to.
+   *
+   * The handle first: it is the one identity the card can be checked against,
+   * because the lockup underneath points at the page it names. The display
+   * name is the fallback, so a Moodscreen made before a page was claimed is
+   * still attributed rather than anonymous.
+   */
+  const byline = String(username || "").trim().toLowerCase() || String(name || "").trim();
+
   return (
     <div
       className={className}
@@ -542,7 +552,19 @@ export default function Moodscreen({
         </div>
 
         {/* §7.5 — the centre, as one stack, optically centred between the
-          * drawn top edge and the lockup. */}
+          * drawn top edge and the lockup.
+          *
+          * Left-aligned, not centred. The byline has to sit at the point the
+          * statement starts or it is not a byline — a name centred over a
+          * block of text is a header, and a header is the one thing §7.5 says
+          * the avatar must not become. Once the byline is flush left the
+          * statement has to be too, or "where the statement begins" is a
+          * different place on every line and the attribution points at
+          * nothing.
+          *
+          * The lockup and the watermark stay centred (§7.3, §7.5). That is the
+          * composition: what the person said sits left on the card, and the
+          * brand sits centred under it. */}
         <div
           style={{
             position: "absolute",
@@ -555,11 +577,19 @@ export default function Moodscreen({
             paddingRight: PAD_MIDDLE,
             display: "flex",
             flexDirection: "column",
-            alignItems: "center",
+            alignItems: "flex-start",
             justifyContent: "center",
-            textAlign: "center",
+            textAlign: "left",
           }}
         >
+          {/* The attribution.
+            *
+            * The avatar sits on its own line above the byline rather than
+            * beside it, and that is the whole point of the change: inline, the
+            * avatar's 30px plus its gap push the name 40px inboard, so the
+            * byline no longer begins where the statement begins and stops
+            * being an attribution to it. Stacked, every row in this block
+            * starts at the same left edge. */}
           <Avatar
             src={avatarUrl}
             name={name}
@@ -568,12 +598,18 @@ export default function Moodscreen({
             live={live && !forExport}
           />
 
-          {name ? (
+          {byline ? (
             <p
               style={{
                 margin: "10px 0 0",
                 fontFamily: "var(--font-mono)",
                 fontSize: 12,
+                /* Lighter than the mood label below it, deliberately. The two
+                 * sit close together in the same mono face and would otherwise
+                 * read as one run of metadata; §7.5 gives the label the
+                 * emphasis because it is half of an utterance with the
+                 * statement, and this is only a signature. */
+                fontWeight: 400,
                 lineHeight: 1.2,
                 color: withAlpha(ink, alphaFor(INK_NAME, resolved.surface)),
                 maxWidth: "100%",
@@ -582,7 +618,7 @@ export default function Moodscreen({
                 whiteSpace: "nowrap",
               }}
             >
-              {name}
+              {byline}
             </p>
           ) : null}
 
@@ -593,7 +629,6 @@ export default function Moodscreen({
             style={{
               display: "flex",
               alignItems: "center",
-              justifyContent: "center",
               gap: 8,
               margin: "18px 0 0",
               color: withAlpha(ink, alphaFor(INK_LABEL, resolved.surface)),
@@ -604,10 +639,14 @@ export default function Moodscreen({
               style={{
                 fontFamily: "var(--font-mono)",
                 fontSize: 13,
+                /* Heavier than the byline — see the note on its weight. */
+                fontWeight: 600,
                 letterSpacing: "0.25em",
-                /* The tracking is trailing whitespace on the last letter;
-                 * without this the pair reads as off-centre. */
-                textIndent: "0.25em",
+                /* No textIndent here any more. It existed to cancel the
+                 * trailing letterspace on the last glyph so a *centred* label
+                 * looked centred; flush left it would push the label a quarter
+                 * of an em right of the statement's edge, which is exactly the
+                 * alignment this layout is for. */
                 lineHeight: 1,
                 textTransform: "lowercase",
               }}

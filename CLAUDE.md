@@ -406,12 +406,39 @@ Three groups, one of them loud.
 
 **Top-right:** the timestamp, mono, ink at 70%. Nothing else in the top row.
 
-**Centre, as one stack:**
+**Centre, as one stack, flush left:**
 
 - Avatar, 30px circle, with the live dot tucked against it
-- Name, 12px mono, ink at 70%
-- Mood label, 13px mono, letterspaced `0.25em`, ink at 72%
+- Byline, 12px mono, weight 400, ink at 70%
+- Mood label, 13px mono, weight 600, letterspaced `0.25em`, ink at 72%
 - The statement — the largest thing on the card by a wide margin
+
+**Left-aligned, not centred**, and every row starts on the same edge. The
+byline is an attribution to the statement, so it has to begin where the
+statement begins; centred over a block of text it is a header, which is the one
+thing the avatar must not become. Once the byline is flush left the statement
+has to be too, or "where the statement begins" is a different place on every
+line and the attribution points at nothing.
+
+Three consequences worth writing down, because each was got wrong once:
+
+- **The avatar sits above the byline, not beside it.** Inline, its 30px plus
+  the gap push the name 40px inboard and the alignment is gone.
+- **The mood label loses its `text-indent`.** That existed to cancel the
+  trailing letterspace so a *centred* label looked centred; flush left it
+  pushes the label a quarter of an em off the edge.
+- **The lockup and the watermark stay centred** (§7.3). That is the
+  composition: what the person said sits left, the brand sits centred below it.
+
+The byline shows the **handle**, falling back to the display name. The handle
+is the one identity the card can be checked against, because the lockup beneath
+it points at the page it names; the name is the fallback so a Moodscreen made
+before a page was claimed is still attributed rather than anonymous.
+
+The mood label is **heavier than the byline** — 600 against 400. They sit close
+together in the same mono face at almost the same size, and at equal weight
+they read as one run of metadata. The label earns the emphasis because it is
+half of an utterance with the statement (below); the byline is only a signature.
 
 The avatar is a **signature, not a header**. Keep it at 30px. A larger one
 costs the statement four points of size and makes the layout generic. In a
@@ -427,6 +454,27 @@ avatar sits at, leaving the disc all but invisible. `ink` takes 26%/44% instead.
 
 The mood label sits **directly above the statement**, never in a corner.
 Label and statement are one utterance and must read as a pair.
+
+**The live dot is preview-only.** It breathes in the app and on the public page
+and must never appear in an export — a still image of a live indicator is a
+claim the file cannot keep, since the PNG is the same three seconds later and
+three weeks later. The renderer gates it on `forExport`, which covers both
+§7.8 modes; nothing else needs to know.
+
+**The avatar can be set without an account.** §1 is guest-first and that has to
+include the face on the card, so the picture is chosen locally, drawn down to a
+128px square, re-encoded, and stored as a `data:` URL in the same guest object
+as everything else. Three rules it must keep:
+
+- **A data URL, never `blob:`.** A blob URL dies with the page, is rejected by
+  the persistence layer for that reason, and exports as a broken image because
+  html-to-image cannot fetch a revoked object URL.
+- **Small.** localStorage is a few megabytes for the whole origin and a phone
+  photo is several on its own; one would evict the Moodscreen it belongs to.
+  128px square is 3× the 30px the export ever samples, and nothing above that
+  buys a pixel anyone sees.
+- **Cover-cropped, centred, EXIF-oriented.** The card clips to a circle, so
+  anything that does not fill the square shows the ground through the disc.
 
 **Bottom, centred:** the lockup — the three-stroke face mark, then
 `moodscreen` bold, then `.live/username` at 60% weight and opacity.
@@ -828,6 +876,14 @@ Known problems to fix rather than work around:
   this is the page shared links land on.
 - The save rate-limit is in localStorage, so it is a politeness guard, not
   security. Enforce server-side.
+
+**A cooldown may delay a write. It must never drop one.** The persist effect
+runs on form change and nothing else, so an early `return` inside it loses the
+*last* edit of any burst permanently — there is nothing left to retry. It read
+as an avatar that would not stick, because choosing a picture tends to be the
+last thing done and lands a second or so after the statement that triggered the
+previous save; it applied to every field. Compute the wait up front instead:
+the debounce, or whatever is left of the cooldown, whichever is longer.
 
 Environment: Windows, PowerShell, nvm. Run
 `$env:ComSpec = "C:\Windows\System32\cmd.exe"` before npm commands in each

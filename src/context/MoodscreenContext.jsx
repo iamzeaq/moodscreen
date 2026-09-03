@@ -37,6 +37,16 @@ import { DEFAULT_SURFACE, isSurfaceId } from "../themes/surface.js";
 /** How long after the last edit to re-render the export blob. */
 const PRERENDER_DEBOUNCE_MS = 400;
 
+/** How long after the last edit to write to storage. */
+const PERSIST_DEBOUNCE_MS = 700;
+
+/**
+ * The shortest gap between two successful writes. A politeness guard against
+ * a burst of keystrokes turning into a burst of round-trips — not security,
+ * and not a reason to lose an edit: see the persist effect.
+ */
+const PERSIST_COOLDOWN_MS = 2000;
+
 /** Touch / mobile browsers need longer before revoke or the save dialog never receives the blob. */
 function downloadRevokeDelayMs() {
   if (typeof navigator === "undefined") return 2500;
@@ -350,16 +360,31 @@ export function MoodscreenProvider({ children }) {
       setAvatarUrl(patch.avatarUrl);
   }, []);
 
-  /** Debounced persist — guest: localStorage, signed-in: Supabase (+ rate limit, cooldown, fallback) */
+  /**
+   * Debounced persist — guest: localStorage, signed-in: Supabase (+ rate
+   * limit, cooldown, fallback).
+   *
+   * The cooldown **delays** the write; it must never drop it. It used to
+   * return early when the last successful save was under two seconds ago, and
+   * because this effect only runs again when the form changes, that made the
+   * *final* edit of any burst unrecoverable — nothing was left to trigger a
+   * retry. It showed up as an avatar that would not stick, since choosing a
+   * picture tends to be the last thing done and lands a second or so after the
+   * statement that triggered the previous save. It applied to every field.
+   *
+   * So the wait is computed up front instead: the debounce, or whatever is
+   * left of the cooldown, whichever is longer.
+   */
   useEffect(() => {
     if (!hydrated) return;
     let cancelled = false;
+    const sinceSave = Date.now() - lastSuccessfulSaveAtRef.current;
+    const wait = Math.max(PERSIST_DEBOUNCE_MS, PERSIST_COOLDOWN_MS - sinceSave);
     const t = window.setTimeout(() => {
       void (async () => {
         if (cancelled) return;
         const fv = formValueRef.current;
         if (!fv) return;
-        if (Date.now() - lastSuccessfulSaveAtRef.current < 2000) return;
         const rl = canAttemptSave();
         if (!rl.ok) {
           setStorageNotice(rl.message);
@@ -392,7 +417,7 @@ export function MoodscreenProvider({ children }) {
           }
         }
       })();
-    }, 700);
+    }, wait);
     return () => {
       cancelled = true;
       window.clearTimeout(t);

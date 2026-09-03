@@ -22,6 +22,7 @@
  * as a stack of centred boxes.
  */
 import Moodscreen from "./Moodscreen.jsx";
+import AvatarField from "./editor/AvatarField.jsx";
 import MoodStrip from "./editor/MoodStrip.jsx";
 import StatementField from "./editor/StatementField.jsx";
 import SurfaceControl from "./editor/SurfaceControl.jsx";
@@ -99,12 +100,22 @@ export default function Hero() {
               onChange={(mood) => handleFormChange({ mood })}
             />
 
-            <SurfaceControl
-              value={formValue.surface}
-              mood={formValue.mood}
-              at={moodscreenProps.at}
-              onChange={(surface) => handleFormChange({ surface })}
-            />
+            {/* The photo and the surface share a row. Both are small, both
+              * are optional, and neither should read as a step you have to
+              * complete — the statement and the mood are the ask. */}
+            <div className="flex items-center gap-5">
+              <AvatarField
+                value={formValue.avatarUrl || ""}
+                name={formValue.name}
+                onChange={(avatarUrl) => handleFormChange({ avatarUrl })}
+              />
+              <SurfaceControl
+                value={formValue.surface}
+                mood={formValue.mood}
+                at={moodscreenProps.at}
+                onChange={(surface) => handleFormChange({ surface })}
+              />
+            </div>
           </div>
         </div>
 
