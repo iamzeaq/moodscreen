@@ -58,18 +58,16 @@ export default function HowItLooks() {
   return (
     <section
       id="how-it-looks"
-      className="relative border-t border-border bg-gradient-to-b from-[#fbf7f2] via-[#f7f7f8] to-[#f0f0f2]"
+      className="relative bg-canvas"
       aria-labelledby="how-it-looks-heading"
     >
       <MicroDecorSection />
-      <div className="relative z-10 mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+      <div className="relative z-10 mx-auto max-w-content px-4 py-16 sm:px-6 sm:py-20">
         <div className="flex flex-col gap-10">
           <div>
-            <h2
-              id="how-it-looks-heading"
-              className="mx-auto max-w-xl text-balance text-center text-2xl font-semibold tracking-tight text-primary sm:text-3xl"
-            >
-              this is what people are on
+            {/* Left-aligned: §5 makes the hero the only centred section. */}
+            <h2 id="how-it-looks-heading" className="max-w-xl text-balance text-34 font-semibold text-fg">
+              This is what people are on
             </h2>
           </div>
 

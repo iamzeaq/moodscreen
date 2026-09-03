@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Moodscreen from "../components/Moodscreen.jsx";
-import { deriveMoodId, deriveStatement } from "../lib/moodscreenModel.js";
 import {
   isReservedUsername,
   isUsernameSlugValid,
@@ -38,13 +37,12 @@ export default function PublicProfilePage() {
       const { data: ms } = await fetchMoodscreenForUser(profile.id);
       if (cancelled) return;
       const normalized = ms && typeof ms === "object" ? ms : normalizeStoredMoodscreen(null);
-      const entries = normalized.moodEntries || [];
       const name = (normalized.name || profile.username || slug).trim() || slug;
       setCard({
         name,
         location: (normalized.location || profile.location || "").trim(),
-        mood: deriveMoodId(entries),
-        statement: deriveStatement(entries),
+        mood: normalized.mood,
+        statement: normalized.statement,
         themeId: normalized.themeId,
         surface: normalized.surface,
         /* §7.4 — the tint belongs to the hour it was written, not the hour a

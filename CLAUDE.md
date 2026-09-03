@@ -583,6 +583,14 @@ release, using the 240ms cross-fade already in the motion budget.
 component, different control. A wheel needs circular mouse movement and nobody
 enjoys that.
 
+The stop is picked from where the pointer is over the track, so the snap is the
+geometry rather than a rounding step afterwards. **Do not gate the moves on
+`hasPointerCapture`.** Capture is worth requesting — it is what keeps a drag
+alive when a thumb slides off the strip vertically, which on a phone is most
+drags — but when it is also the gate, a failed `setPointerCapture` silently
+turns the scrub into a tap: the first stop commits and every move after it is
+dropped. Track the drag in a ref and treat capture as the enhancement.
+
 **Pro: free hue.** The same wheel with `snap: false` and hue as a float. The
 ten stops become detents you feel as you pass them. Constrain lightness and
 chroma so the wheel picks only the angle — that guarantees contrast at any
@@ -641,6 +649,28 @@ argue otherwise. The straight mouths need no such help.
 Wordmark: `moodscreen`, lowercase, one word, tracking `-0.03em`, Switzer
 Semibold. Lock the mark's height to the wordmark's x-height, not cap height.
 
+### 8.1 The mark at scale
+
+It is drawn for small sizes and it stops reading as a face at large ones. The
+strokes and the gaps scale together, so past roughly **200px the eyes and the
+mouth are far enough apart that they group into nothing** — three separate
+bars rather than a face. §7.3 records this failing twice inside the renderer;
+it is the same limit anywhere the mark is drawn.
+
+That sets the ceiling for the §9.1 scatter, whose marks run 60–190px and are
+sized *down* as they move outward so none is cut by an edge.
+
+The one deliberate exception is the §9.6 crop, which runs 420–820px and is
+meant to be too big to take in at once. It reads as large soft shapes rather
+than as a face, and that is accepted knowingly for one instance on the page.
+**Do not "fix" it by shrinking it, and do not copy it anywhere else.**
+
+Cropping the mark is governed by what does the cutting. Cut by the *screen's
+own edge* it reads as a rendering fault inside a finished object, which §7.3
+forbids outright. Cut by the **viewport** it reads as a form running off the
+page, because the window crops everything. Even then, keep the cut under a
+fifth: take a third and it takes an eye, and what is left is slabs.
+
 ---
 
 ## 9. Site structure
@@ -672,6 +702,48 @@ spine.
 
 6. **Close** — the claim field again, one line above it.
 
+### 9.7 Dividers — the screen's edge, never a rule
+
+**No horizontal rules anywhere on the site.** Sections are separated by one
+shallow bezier: §7.1's first cubic with its ends pinned to the box, drawn at
+`--line`, spanning the content column.
+
+`up` is the top edge, so the section under it begins like a screen; `down` is
+the bottom edge, so the section above it ends like one. **Alternate them down
+the page** — one direction throughout reads as a row of arcs, not a stack of
+screens.
+
+Two numbers are fixed and neither is taste:
+
+- **Container width, not viewport.** An arc is judged by its rise against its
+  own width. Edge to edge at 1440px the same curve reads as a line somebody
+  failed to level.
+- **Depth 44px**, which puts the visible rise at 33px — the card's own 2.88%
+  across a 1120px column, since a cubic reaches three quarters of its control
+  offset at the midpoint.
+
+The same curve at `depth 14`, uncontained, is the ornament under a heading. A
+dot-line-dot rule is a horizontal rule wearing a hat; it does not come back.
+
+### 9.8 Face-mark backgrounds — two sections, not six
+
+**Exactly two sections carry one, and they are the hero and the close.** The
+pulse needs a clean field for its numbers and the wall already shows real
+Moodscreens; a texture on every section stops being a texture and becomes the
+background colour. In both, the headline and the content stay clearly dominant.
+
+- **Hero** — around twenty marks, 60–190px (see §8.1), slight rotations, each
+  a different mood colour at 8–14%. Laid out on a jittered ring and masked
+  clear of the middle, so the headline and editor sit on empty ground at any
+  viewport. Very slow drift, `transform` only, tens of seconds a leg. This is
+  the one place the four §6 durations do not apply — it is ambient, not a
+  response to anything. Cancel it outright under `prefers-reduced-motion`;
+  the blanket rule in `base.css` parks an animation at its *end* state, which
+  for the drift is a different drawing rather than the still one.
+- **Close** — one mark, 420–820px, single mood, static, bleeding off the
+  **right** edge, opposite the left-aligned content. See §8.1 for what this
+  costs and why it is accepted here and nowhere else.
+
 ---
 
 ## 10. Components
@@ -679,11 +751,39 @@ spine.
 **Button** — six states, all specified: rest, hover, active, focus-visible,
 disabled, loading. Most builds ship two and it shows.
 
-Primary 44px tall, secondary 36px, radius 10px. Hover **lightens the fill**;
-it does not scale. Active `translateY(1px)` at 80ms. Focus-visible is a 2px
-accent ring at 40% alpha with 2px offset — never removed.
+Secondary 36px, radius 10px. Hover **lightens the fill**; it does not scale.
+Active `translateY(1px)` at 80ms. Focus-visible is a 2px accent ring at 40%
+alpha with 2px offset — never removed.
 
 One primary action per view. No gradient fills, no glow.
+
+**The primary button is the screen in miniature, not a pill.** §7.1's outline
+is the brand; a rounded rectangle beside it is the one shape on the page that
+could have come from anywhere. So the primary action is a Moodscreen: the same
+path fitted to a wide box, a mood colour from §3, and the §8 face mark beside
+the label. Around **210 × 68**, left-aligned, never full width.
+
+It reuses `screenPathBox` and `<Logo>`. Nothing about it is new geometry, and
+if it ever needs a private copy of either it has stopped being the product's
+own shape.
+
+Two states are drawn differently for reasons the shape forces:
+
+- **Hover** steps to the next mood round the §7.9 hue ring over 180ms, and
+  each hover advances one more, so hovering repeatedly walks the ring. That is
+  the same promise as "hover lightens the fill, never a scale", kept in the
+  currency this button trades in — and it is §3's accent rule turned into an
+  invitation, since this is the thing whose colour you are about to choose.
+- **Focus-visible** cannot be an `outline`: an outline round a screen is a
+  rectangle round a screen. It is a second copy of the path, stroked at 2px,
+  fitted to a box 4px larger on each axis — which is what "2px offset" means
+  on a shape whose sides are bowed, there being no single direction to push a
+  curved edge in.
+
+The 44px primary in the first paragraph is what a screen-shaped button
+replaces, not something that also exists. The old `<Button variant="primary">`
+stays for dense contexts — pickers, the studio's toolbar — where a 68px screen
+would be the loudest thing in a row of controls.
 
 **Input** — 44px, `--panel` background, `--line` border, `--line-strong` on
 hover, accent border plus tint on focus. The username field shows
@@ -695,13 +795,31 @@ hover, accent border plus tint on focus. The username field shows
 
 Vite + React 19 + Tailwind v4 + Supabase + `html-to-image` + React Router v7.
 
+### What a Moodscreen is stored as
+
+Payload **v3**: `mood`, `statement`, `surface`, `themeId`, plus name, location,
+link, avatar and the two timestamps. Nothing else, and in particular no second
+copy of the mood.
+
+Two older shapes exist in the wild and are read, never written:
+
+- **v2** kept up to two `{ categoryId, text }` rows drawn from a list of 34
+  emoji categories, a vocabulary that competed with §3's ten moods for saying
+  what a Moodscreen was about.
+- **v1** kept four loose top-level strings.
+
+`normalizeStoredMoodscreen` is the only place that knows this, and
+`moodscreenModel.js` exists solely to map the old categories onto moods. A
+record migrates the first time its owner opens the site. Delete either file and
+every pre-redesign Moodscreen comes back blank.
+
 Known problems to fix rather than work around:
 
 - `MoodscreenContext.jsx` is 574 lines doing form state, export, share, and
   sync. Split it.
-- `design-system.css` is 886 hand-written lines running alongside Tailwind v4.
-  Pick one. Tokens in CSS variables, everything else Tailwind.
-- `HomePage.jsx` is dead — returns `null`, imported nowhere. Delete it.
+- `legacy.css` is 600 hand-written lines running alongside Tailwind v4. Pick
+  one. Tokens in CSS variables, everything else Tailwind. The legacy aliases at
+  the bottom of `tokens.css` die with it.
 - `/:username` sits at the root, so every future top-level route collides with
   the username space. `isReservedUsername` is a list you maintain forever.
   Move public profiles to `/u/:username` with a redirect from the old shape,
@@ -714,6 +832,15 @@ Known problems to fix rather than work around:
 Environment: Windows, PowerShell, nvm. Run
 `$env:ComSpec = "C:\Windows\System32\cmd.exe"` before npm commands in each
 new session or `npm install` fails with `spawn EPERM`.
+
+When the nvm shim itself breaks — `npm run build` dying in
+`node:internal/modules/cjs/loader` with `Invalid or unexpected token`, which is
+node being handed its own binary as a script — skip npm and call the tool
+directly:
+
+```powershell
+& "$env:LOCALAPPDATA\nvm\v24.16.0\node.exe" node_modules\vite\bin\vite.js build
+```
 
 ---
 
@@ -733,6 +860,8 @@ Never ship any of these:
 - The word "card" in anything a user reads
 - Numbered markers on content that isn't a sequence
 - An arrow appended to link and button text
+- A horizontal rule, anywhere — §9.7
+- A pill-shaped primary action — §10
 
 The test before shipping any screen: could this have been generated from a
 one-line prompt? If yes, something specific to Moodscreen is missing.

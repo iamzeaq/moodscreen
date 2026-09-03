@@ -11,7 +11,7 @@
  * the pre-redesign list of 34 emoji categories that the current editor uses;
  * reconciling the two belongs to the Moodscreen renderer work, not here.
  */
-import { scaleChroma } from "./color.js";
+import { hexToOklch, scaleChroma } from "./color.js";
 
 const SPECTRUM = [
   { id: "building", label: "Building", color: "#FF8A00", ink: "#4A2C05" },
@@ -53,4 +53,37 @@ export function getMood(id) {
 /** The colour that should be driving `--accent` for a given mood. */
 export function accentForMood(id) {
   return BY_ID.get(id)?.color ?? DEFAULT_ACCENT;
+}
+
+/**
+ * The ten, ordered by hue — CLAUDE.md §7.9.
+ *
+ * The picker is a ring of stops "ordered by hue", and the web strip is the
+ * same data in a line, so the order has to come from the colours rather than
+ * from the order §3 happens to list them in. Sorted by OKLCH hue angle so the
+ * strip reads as a spectrum and scrubbing it feels like turning a dial.
+ *
+ * `offline` is a mid grey with almost no chroma, so its hue angle is close to
+ * meaningless. It goes last deliberately: it is the one mood that means the
+ * absence of the others, and an end stop is where the eye expects that.
+ */
+export const MOODS_BY_HUE = (() => {
+  const grey = MOODS.filter((m) => m.id === "offline");
+  const rest = MOODS.filter((m) => m.id !== "offline");
+  rest.sort((a, b) => hexToOklch(a.color).h - hexToOklch(b.color).h);
+  return [...rest, ...grey];
+})();
+
+export const MOOD_IDS_BY_HUE = MOODS_BY_HUE.map((m) => m.id);
+
+/** The next mood round the ring — what the §10 button cycles through on hover. */
+export function nextMoodId(id, step = 1) {
+  const i = MOOD_IDS_BY_HUE.indexOf(id);
+  const from = i === -1 ? 0 : i;
+  const n = MOOD_IDS_BY_HUE.length;
+  return MOOD_IDS_BY_HUE[(((from + step) % n) + n) % n];
+}
+
+export function isMoodId(id) {
+  return typeof id === "string" && BY_ID.has(id);
 }

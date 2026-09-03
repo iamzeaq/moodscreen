@@ -18,17 +18,14 @@ import {
   upsertMoodscreenForUser,
   writeGuestMoodscreen,
 } from "../services/moodscreenDataService.js";
-import {
-  DEFAULT_MOOD_ENTRIES,
-  normalizeMoodEntries,
-} from "../lib/moodCategories.js";
 import { normalizeStoredMoodscreen } from "../lib/moodscreenPayload.js";
 import {
   canAttemptSave,
   recordSuccessfulSave,
 } from "../lib/moodscreenRateLimit.js";
-import { sanitizeMoodEntries } from "../lib/moodscreenValidation.js";
-import { deriveMoodId, deriveStatement } from "../lib/moodscreenModel.js";
+import { accentForMood, isMoodId } from "../lib/moods.js";
+import { applyAccent } from "../lib/color.js";
+import { clampStatement } from "../lib/statementFit.js";
 import {
   captureMoodscreenBlob,
   ensureMoodscreenFontsReady,
@@ -135,12 +132,26 @@ function invokeNavigatorShare({ file, text, url }) {
 }
 
 const DEFAULT_FORM = {
-  name: "Isaac Twekyard",
-  location: "Lagos",
+  name: "",
+  location: "",
   link: "",
   themeId: DEFAULT_THEME_ID,
-  /** §7.2 — the user's second choice, alongside the mood. */
+  /**
+   * §7.2 — the user's two choices, and nothing between them.
+   *
+   * `thinking` because §3's accent default before any mood is chosen is its
+   * violet, and the accent follows the mood. Starting anywhere else would mean
+   * the site's first paint disagreed with its own token file.
+   */
+  mood: "thinking",
   surface: DEFAULT_SURFACE,
+  /**
+   * Empty, deliberately. §9.1 has the visitor type and the Moodscreen build in
+   * real time, so a seeded statement would mean their first keystroke deletes
+   * someone else's sentence. The hero hands the preview a placeholder instead,
+   * which is not the same thing: it is never saved and never exported.
+   */
+  statement: "",
   avatarUrl: null,
 };
 
@@ -151,7 +162,8 @@ export function MoodscreenProvider({ children }) {
 
   const [name, setName] = useState(DEFAULT_FORM.name);
   const [location, setLocation] = useState(DEFAULT_FORM.location);
-  const [moodEntries, setMoodEntries] = useState(DEFAULT_MOOD_ENTRIES);
+  const [mood, setMood] = useState(DEFAULT_FORM.mood);
+  const [statement, setStatement] = useState(DEFAULT_FORM.statement);
   const [link, setLink] = useState(DEFAULT_FORM.link);
   const [themeId, setThemeId] = useState(DEFAULT_FORM.themeId);
   const [surface, setSurface] = useState(DEFAULT_FORM.surface);
@@ -184,7 +196,8 @@ export function MoodscreenProvider({ children }) {
     setThemeId(isThemeId(n.themeId) ? n.themeId : DEFAULT_FORM.themeId);
     setSurface(isSurfaceId(n.surface) ? n.surface : DEFAULT_FORM.surface);
     setAvatarUrl(n.avatarUrl ?? null);
-    setMoodEntries(normalizeMoodEntries(n.moodEntries));
+    setMood(isMoodId(n.mood) ? n.mood : DEFAULT_FORM.mood);
+    setStatement(clampStatement(n.statement ?? ""));
     if (n.created_at) persistMetaRef.current.created_at = n.created_at;
 
     /* Hydration is not a new moment, so the stamp that arrives with the data
@@ -231,7 +244,14 @@ export function MoodscreenProvider({ children }) {
     };
   }, [sessionReady, user?.id, authVersion, applyFromObject]);
 
-  /* A changed statement is a new moment; everything else on the form is not. */
+  /**
+   * A changed statement is a new moment; everything else on the form is not.
+   *
+   * The mood deliberately does not restamp either. Changing violet to red is
+   * changing how the same thought is coloured, and §7.4's tint belongs to the
+   * hour the thought was had — restamping on a mood tap would mean scrubbing
+   * the strip at midnight quietly relit a card written that afternoon.
+   */
   useEffect(() => {
     if (!hydrated) return;
     if (keepStampRef.current) {
@@ -239,19 +259,23 @@ export function MoodscreenProvider({ children }) {
       return;
     }
     setPostedAt(new Date().toISOString());
-  }, [moodEntries, hydrated]);
+  }, [statement, hydrated]);
 
   const formValue = useMemo(
     () => ({
       name,
       location,
-      moodEntries,
+      mood,
+      statement,
       link,
       themeId,
       surface,
       avatarUrl,
+      /* Carried on the form so a save that did not change the statement writes
+       * the stamp back rather than replacing it with now. */
+      updated_at: postedAt,
     }),
-    [name, location, moodEntries, link, themeId, surface, avatarUrl],
+    [name, location, mood, statement, link, themeId, surface, avatarUrl, postedAt],
   );
 
   formValueRef.current = formValue;
@@ -261,8 +285,10 @@ export function MoodscreenProvider({ children }) {
     if (Object.prototype.hasOwnProperty.call(patch, "name")) setName(patch.name);
     if (Object.prototype.hasOwnProperty.call(patch, "location"))
       setLocation(patch.location);
-    if (Object.prototype.hasOwnProperty.call(patch, "moodEntries") && Array.isArray(patch.moodEntries))
-      setMoodEntries(sanitizeMoodEntries(patch.moodEntries));
+    if (Object.prototype.hasOwnProperty.call(patch, "mood") && isMoodId(patch.mood))
+      setMood(patch.mood);
+    if (Object.prototype.hasOwnProperty.call(patch, "statement"))
+      setStatement(clampStatement(patch.statement));
     if (Object.prototype.hasOwnProperty.call(patch, "link")) setLink(patch.link);
     if (Object.prototype.hasOwnProperty.call(patch, "themeId") && isThemeId(patch.themeId))
       setThemeId(patch.themeId);
@@ -290,7 +316,10 @@ export function MoodscreenProvider({ children }) {
         const meta = { createdAt: persistMetaRef.current.created_at };
         const snapshot = serializeMoodscreenState(fv, meta);
         persistMetaRef.current.created_at = snapshot.created_at;
-        const saveMeta = { createdAt: persistMetaRef.current.created_at };
+        const saveMeta = {
+          createdAt: persistMetaRef.current.created_at,
+          updatedAt: fv.updated_at,
+        };
         try {
           if (user?.id) {
             const { error } = await upsertMoodscreenForUser(user.id, fv, saveMeta);
@@ -331,6 +360,7 @@ export function MoodscreenProvider({ children }) {
     if (was && !user?.id && hydrated) {
       writeGuestMoodscreen(formValue, {
         createdAt: persistMetaRef.current.created_at,
+        updatedAt: formValue.updated_at,
       });
     }
     prevUserIdRef.current = user?.id;
@@ -346,15 +376,11 @@ export function MoodscreenProvider({ children }) {
     [profile?.username],
   );
 
-  /**
-   * Everything <Moodscreen> needs, and nothing else. Mood and statement are
-   * derived from the editor's rows rather than stored — see
-   * src/lib/moodscreenModel.js.
-   */
+  /** Everything <Moodscreen> needs, and nothing else. */
   const moodscreenProps = useMemo(
     () => ({
-      mood: deriveMoodId(moodEntries),
-      statement: deriveStatement(moodEntries),
+      mood,
+      statement,
       name: (name || "").trim(),
       username,
       avatarUrl: avatarUrl ?? "",
@@ -368,8 +394,21 @@ export function MoodscreenProvider({ children }) {
        */
       at: postedAt,
     }),
-    [moodEntries, name, username, avatarUrl, themeId, surface, postedAt],
+    [mood, statement, name, username, avatarUrl, themeId, surface, postedAt],
   );
+
+  /**
+   * §3 — the accent is the mood currently in focus, not a fixed brand colour.
+   *
+   * It lives here rather than in the hero because every surface that shows a
+   * Moodscreen shows it: the logo fill, the primary button, focus rings and
+   * the caret all follow whatever is being edited, and a hero-local effect
+   * would leave /create wearing the default violet while its card was orange.
+   */
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    applyAccent(document.documentElement, accentForMood(mood));
+  }, [mood]);
 
   /* ------------------------------------------------------ export + share */
 

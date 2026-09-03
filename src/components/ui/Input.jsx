@@ -84,7 +84,10 @@ const Input = forwardRef(function Input(
           disabled={disabled}
           aria-invalid={invalid || undefined}
           aria-describedby={error || hint ? noteId : undefined}
-          className={`${CONTROL} ${prefix ? "pl-0.5" : "pl-3"} ${suffix ? "pr-0.5" : "pr-3"}`}
+          /* No left padding behind a prefix: `moodscreen.live/` and the name
+           * the visitor types are one URL, and a gap in the middle of it makes
+           * the domain read as a label sitting inside the field. */
+          className={`${CONTROL} ${prefix ? "pl-0" : "pl-3"} ${suffix ? "pr-0.5" : "pr-3"}`}
           {...rest}
         />
 

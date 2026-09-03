@@ -97,6 +97,36 @@ body {
 }
 
 /**
+ * The hero's face-mark drift (src/components/brand/FaceField.jsx).
+ *
+ * Transform only, and slow enough — 34-72s a leg — that it registers as the
+ * page breathing rather than as an animation. The four §6 durations are for
+ * things a tap or a hover causes; this is ambient, and running it at 320ms is
+ * how you get the scroll-stagger signature §6 exists to ban.
+ *
+ * Each element supplies its own deltas as custom properties, so twenty marks
+ * share one keyframe rather than generating twenty.
+ */
+@keyframes face-drift {
+  from {
+    transform: translate3d(0, 0, 0) rotate(var(--face-rot, 0deg));
+  }
+  to {
+    transform: translate3d(var(--face-dx, 0), var(--face-dy, 0), 0)
+      rotate(var(--face-rot-to, 0deg));
+  }
+}
+
+.face-drift {
+  transform: translate3d(0, 0, 0) rotate(var(--face-rot, 0deg));
+  animation-name: face-drift;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+  animation-timing-function: ease-in-out;
+  will-change: transform;
+}
+
+/**
  * Motion budget (CLAUDE.md §6).
  *
  * Under reduced motion the mood cross-fade and the digit roll survive as
@@ -114,5 +144,13 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  /* The blanket rule above collapses an animation to its *end* state, which
+   * for the drift would park every mark at the far end of its travel — a
+   * different drawing, not the still one. Cancel it outright instead, so the
+   * scatter renders exactly as authored. */
+  .face-drift {
+    animation: none !important;
   }
 }

@@ -24,8 +24,8 @@ Work happens on `redesign`.
 | 1 — Tokens and primitives | done, `fb51b22` |
 | 2 — The Moodscreen renderer | done, `bde899c` |
 | 2b — Renderer rework for the new §7 | done |
-| 3 — Hero | next |
-| 4 — Pulse and wall | ahead |
+| 3 — Hero | done |
+| 4 — Pulse and wall | next |
 | 5 — Remaining sections and the public page | ahead |
 
 §7 was rewritten after session 2 shipped (`d087307`). Sessions 1 and 2 are
@@ -140,6 +140,28 @@ vignette is invisible as an effect; the word "card" appears in code only.
 Check: type a sentence and the Moodscreen updates with no lag; change mood
 and the logo and buttons change colour with it; the card updates during the
 strip drag, not on release; three taps get you a finished Moodscreen.
+
+**Shipped**, plus four things the prompt above does not mention and CLAUDE.md
+now does — read those sections before touching any of them:
+
+1. The primary button is the screen in miniature, not a pill — §10.
+2. Section dividers are the screen's edge, alternating direction. No horizontal
+   rules anywhere — §9.7.
+3. Face-mark backgrounds on exactly two sections, the hero and the close, and
+   the size limits that keep the mark reading as a face — §9.8 and §8.1.
+4. Storage moved to payload v3, `mood` + `statement`, with v2 and v1 read
+   through `normalizeStoredMoodscreen` — §11.
+
+Also built here because the hero needed them: `SiteNav`, `ClaimField` (with the
+claim stashed across the sign-in redirect and prefilled into onboarding), and
+the §9.6 close, since a closing section had to exist to carry the background.
+Session 5 keeps the rest of its list.
+
+The three light-ground sections between the hero and the close are still
+pre-redesign and are what sessions 4 and 5 replace. They were put on `--canvas`
+and had their §2 and §12 breaks fixed so the page reads as one product in the
+meantime; nothing about them is finished work. `ColorEnergySection` in
+particular is cut back to the shape §9.2's pulse will fill.
 
 ---
 

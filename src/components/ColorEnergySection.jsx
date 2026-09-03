@@ -1,132 +1,67 @@
 /**
- * Section 3 — Color + Energy
- * Stat blocks + Moodscreen cards.
+ * A placeholder standing where §9.2's pulse goes.
+ *
+ * Session 4 replaces this with the real thing: one cached aggregate query, a
+ * big live count, the breakdown as a mood-coloured bar beneath it, digits
+ * rolling on change, and the whole section hidden below 200 live Moodscreens
+ * because a small number advertises emptiness.
+ *
+ * What it is not any more is the light-ground, blur-orb, "build your vibe"
+ * block it was. Every part of that broke a rule the redesign is built on — a
+ * cream gradient behind cards §3 says need a quiet ground, glow §12 bans
+ * outright, and body copy that could have come from any launch page. It is
+ * cut back to the shape session 4 will fill rather than restyled, so nobody
+ * mistakes it for finished work.
+ *
+ * §9.2 also fixes the alignment: left, in a wide band. The hero is the only
+ * centred section on the site.
  */
-
-import { MicroDecorSoft } from "./MicroDecor.jsx";
 import Moodscreen from "./Moodscreen.jsx";
 import { SAMPLE_MOODSCREENS } from "../lib/sampleMoodscreens.js";
 
-function StatBlock({ label, value, sub, tint }) {
-  return (
-    <div className="relative overflow-hidden rounded-card p-6">
-      <div
-        aria-hidden
-        className="absolute inset-0 -z-0"
-        style={{
-          background: `radial-gradient(65% 80% at 20% 10%, ${tint.glow} 0%, transparent 55%), radial-gradient(60% 70% at 90% 70%, ${tint.glow2} 0%, transparent 55%)`,
-          opacity: 1,
-        }}
-      />
-      <div className="relative z-10">
-        <div className="ds-meta uppercase tracking-[0.12em]">{label}</div>
-        <div className="mt-2 text-5xl font-semibold tracking-tight text-primary sm:text-6xl">
-          {value}
-        </div>
-        {sub ? <div className="mt-2 ds-body text-secondary">{sub}</div> : null}
-      </div>
-    </div>
-  );
-}
-
-function CardPedestal({ children, accent }) {
-  return (
-    <div
-      className={[
-        "rounded-[2rem] bg-[#030303] p-3 shadow-[0_18px_40px_-12px_rgba(0,0,0,0.38)] ring-1",
-        accent ? accent : "ring-white/[0.06]",
-      ].join(" ")}
-    >
-      {children}
-    </div>
-  );
-}
+/** Placeholder figures. Session 4 replaces these with the aggregate query. */
+const STATS = [
+  { label: "Live right now", value: "—" },
+  { label: "Updated today", value: "—" },
+  { label: "Moods in play", value: "10" },
+];
 
 export default function ColorEnergySection() {
   return (
     <section
-      className="relative border-t border-border overflow-hidden bg-gradient-to-br from-[#fff2d6] via-[#f4edff] to-[#dff3ff] py-16 sm:py-20"
+      className="relative bg-canvas px-4 py-16 sm:px-6 sm:py-20"
       id="color-energy"
       aria-labelledby="color-energy-heading"
     >
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -left-52 top-10 h-80 w-80 rounded-full bg-[#ffedd5]/80 blur-3xl opacity-50"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -right-52 top-20 h-80 w-80 rounded-full bg-[#e9d5ff]/65 blur-3xl opacity-40"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute bottom-0 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-[#dbeafe]/60 blur-3xl opacity-35"
-      />
+      <div className="mx-auto grid max-w-content grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-14">
+        <div className="lg:col-span-5">
+          <h2
+            id="color-energy-heading"
+            className="max-w-[20ch] text-balance text-34 font-semibold text-fg"
+          >
+            Ten moods, three surfaces, thirty looks
+          </h2>
+          <p className="mt-3 max-w-[46ch] text-18 text-muted">
+            Two taps decide all of it. The colour means something — violet is always
+            thinking, red is always speaking — so a Moodscreen reads before it is read.
+          </p>
 
-      <MicroDecorSoft className="z-[1]" />
-
-      <div className="relative z-10 mx-auto max-w-6xl px-4">
-        <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-14 lg:items-start">
-          <div className="lg:col-span-5">
-            <p className="ds-meta uppercase tracking-[0.12em] text-meta">
-              color + energy
-            </p>
-            <h2
-              id="color-energy-heading"
-              className="mt-3 text-balance text-2xl font-semibold tracking-tight text-primary sm:text-3xl"
-            >
-              Build your vibe in seconds
-            </h2>
-            <p className="mt-3 ds-body">
-              Bold energy, still calm. set your state and share.
-            </p>
-
-            <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-3">
-              <StatBlock
-                label="ACTIVE NOW"
-                value="5"
-                sub="states active"
-                tint={{ glow: "rgba(185, 74, 32, 0.28)", glow2: "rgba(255, 193, 122, 0.25)" }}
-              />
-              <StatBlock
-                label="TODAY"
-                value="3"
-                sub="updates today"
-                tint={{ glow: "rgba(124, 58, 237, 0.22)", glow2: "rgba(233, 213, 255, 0.28)" }}
-              />
-              <StatBlock
-                label="THIS WEEK"
-                value="12"
-                sub="views this week"
-                tint={{ glow: "rgba(59, 130, 246, 0.22)", glow2: "rgba(219, 234, 254, 0.28)" }}
-              />
-            </div>
-          </div>
-
-          <div className="lg:col-span-7">
-            <div className="relative">
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div className="sm:pr-6">
-                  <CardPedestal accent="ring-[#e8705c]/25">
-                    <Moodscreen {...SAMPLE_MOODSCREENS[0]} width={300} />
-                  </CardPedestal>
-                </div>
-
-                <div className="sm:pl-6 [transform:translateY(18px)]">
-                  <CardPedestal accent="ring-violet-400/20">
-                    <Moodscreen {...SAMPLE_MOODSCREENS[2]} width={300} />
-                  </CardPedestal>
-                </div>
+          <dl className="mt-10 flex flex-wrap gap-x-12 gap-y-6">
+            {STATS.map((s) => (
+              <div key={s.label}>
+                <dd className="text-48 font-semibold text-fg tabular-nums">{s.value}</dd>
+                <dt className="mt-1 text-13 text-muted">{s.label}</dt>
               </div>
+            ))}
+          </dl>
+        </div>
 
-              <div className="mt-6 sm:mt-8 sm:flex sm:justify-end">
-                <div className="w-full max-w-[420px] [transform:translateY(-10px)] sm:ml-auto">
-                  <CardPedestal accent="ring-sky-400/20">
-                    <Moodscreen {...SAMPLE_MOODSCREENS[3]} width={300} />
-                  </CardPedestal>
-                </div>
-              </div>
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:col-span-7">
+          {SAMPLE_MOODSCREENS.slice(0, 2).map((s) => (
+            <div key={s.username} className="flex justify-center">
+              <Moodscreen {...s} width={300} />
             </div>
-          </div>
+          ))}
         </div>
       </div>
     </section>

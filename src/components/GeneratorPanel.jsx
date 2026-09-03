@@ -1,6 +1,7 @@
 import { useMoodscreen } from "../context/MoodscreenContext.jsx";
 import { MicroCornerFrame, MicroDecorMesh } from "./MicroDecor.jsx";
 import Moodscreen from "./Moodscreen.jsx";
+import ScreenDivider from "./brand/ScreenDivider.jsx";
 import StatusForm from "./StatusForm.jsx";
 
 /** Off-screen PNG capture + live preview + form — shared by home and /create */
@@ -21,29 +22,20 @@ export default function GeneratorPanel({ showHeader = true }) {
 
   return (
     <>
-      <div
-        id="generator"
-        className="generator-panel generator-zone relative border-t border-border"
-      >
+      <ScreenDivider direction="up" />
+      <div id="generator" className="generator-panel generator-zone relative">
         <MicroDecorMesh />
         <div className="generator-panel-inner relative z-10 mx-auto flex w-full max-w-5xl flex-col gap-10 px-4 py-14 [padding-top:calc(3.25rem+env(safe-area-inset-top))] [padding-bottom:calc(3.25rem+env(safe-area-inset-bottom))] sm:gap-12 sm:px-6 sm:py-16">
           {showHeader ? (
             <header className="w-full max-w-5xl">
-              <p className="font-mono text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-meta">
-                moodscreen / studio
-              </p>
-              <h1 className="mt-3 text-balance text-3xl font-bold tracking-tight text-primary sm:text-[2.35rem] sm:leading-tight">
-                Build your{" "}
-                <span className="text-accent">status card</span>
+              {/* §2 — the object is a Moodscreen, never a card, and an
+                * all-caps eyebrow above a heading is §12's first entry. */}
+              <h1 className="text-balance text-34 font-semibold text-fg">
+                Make a Moodscreen
               </h1>
-              <p className="mt-4 max-w-lg text-base leading-relaxed text-secondary">
-                Monochrome, sharp, and screenshot-ready. Edit the fields — the preview
-                updates live.
+              <p className="mt-4 max-w-lg text-15 text-muted">
+                Say what you&apos;re on. It updates as you type.
               </p>
-              <div
-                className="mt-8 h-1 w-12 rounded-full bg-primary"
-                aria-hidden
-              />
             </header>
           ) : null}
 
@@ -52,8 +44,7 @@ export default function GeneratorPanel({ showHeader = true }) {
               <StatusForm
                 value={formValue}
                 onChange={handleFormChange}
-                title="Edit your card"
-                className="!rounded-[1.25rem] !border-neutral-200/90 !p-5 !shadow-[0_28px_80px_-40px_rgba(0,0,0,0.35)] ring-1 ring-black/[0.04] sm:!p-8 [data-theme=dark]:!border-white/[0.08] [data-theme=dark]:ring-white/[0.06] [data-theme=dark]:!shadow-[0_28px_80px_-40px_rgba(0,0,0,0.75)]"
+                title="Your Moodscreen"
               />
             </section>
 
@@ -66,12 +57,7 @@ export default function GeneratorPanel({ showHeader = true }) {
               <MicroCornerFrame className="hidden text-primary opacity-70 lg:block" />
               <div className="relative mb-5 flex flex-col gap-3">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between lg:flex-col">
-                  <div>
-                    <p className="font-mono text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-meta">
-                      Output
-                    </p>
-                    <h2 className="ds-title-sm mt-1">Live preview</h2>
-                  </div>
+                  <h2 className="text-18 font-semibold text-fg">Live</h2>
                   <div className="flex flex-wrap gap-2 sm:justify-end lg:justify-start">
                     <button
                       type="button"

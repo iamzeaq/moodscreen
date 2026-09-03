@@ -1,35 +1,125 @@
 /**
- * Section 1 — Landing hero
+ * The hero — CLAUDE.md §9.1 and §7.9.
+ *
+ * "Headline, subhead, and a **live editor**: the visitor types and the
+ * Moodscreen builds in real time, colour changing with the mood. No 'create'
+ * button. The CTA below is `Claim moodscreen.live/yourname`, which converts far
+ * better because the work is already done."
+ *
+ * That is the entire argument for this section's shape. There is no gate
+ * between arriving and having made something, so the ask at the bottom is not
+ * "would you like to try this" — it is "you have made one, do you want to keep
+ * it". Anything added between the headline and the field weakens that, which is
+ * why the editor is exactly three controls: the statement, the mood, and the
+ * surface. §7.2's two user choices, plus the one thing they are choosing about.
+ *
+ * The mood category picker and the suggestion list that used to live here are
+ * gone. Categories were a second vocabulary competing with the ten moods, and a
+ * suggestion list answers the headline's question on the visitor's behalf.
+ *
+ * This is the only centred section on the site (§5). Everything below it is
+ * left-aligned or full-bleed, and that contrast is what stops the page reading
+ * as a stack of centred boxes.
  */
+import { useMemo } from "react";
+import Moodscreen from "./Moodscreen.jsx";
+import MoodStrip from "./editor/MoodStrip.jsx";
+import StatementField from "./editor/StatementField.jsx";
+import SurfaceControl from "./editor/SurfaceControl.jsx";
+import { FaceField } from "./brand/FaceField.jsx";
+import ClaimField from "./ClaimField.jsx";
+import { useMoodscreen } from "../context/MoodscreenContext.jsx";
 
-import FloatingBackground from "./FloatingBackground.jsx";
-import { MicroCornerFrame, MicroDecorHero } from "./MicroDecor.jsx";
-import SignupWidget from "./SignupWidget.jsx";
+/**
+ * What the card shows before anyone has typed.
+ *
+ * Never persisted and never exported — the stored statement stays empty until
+ * the visitor writes one, so their first keystroke starts a sentence rather
+ * than deleting someone else's. The card cannot be blank while they decide,
+ * though: an empty Moodscreen looks broken, not inviting.
+ */
+const PLACEHOLDER_STATEMENT = "shipping the thing I promised";
 
 export default function Hero() {
+  const { formValue, handleFormChange, moodscreenProps, storageHydrated } = useMoodscreen();
+
+  const preview = useMemo(
+    () => ({
+      ...moodscreenProps,
+      statement: moodscreenProps.statement || PLACEHOLDER_STATEMENT,
+      name: moodscreenProps.name || "you",
+      username: moodscreenProps.username || "yourname",
+    }),
+    [moodscreenProps],
+  );
+
   return (
     <section
-      className="hero-section relative min-h-dvh overflow-x-hidden px-4 py-16 [padding-top:calc(4rem+env(safe-area-inset-top))] [padding-bottom:calc(4rem+env(safe-area-inset-bottom))] sm:px-6"
+      className="relative overflow-hidden px-4 pb-24 pt-28 [padding-top:calc(7rem+env(safe-area-inset-top))] sm:px-6"
+      aria-labelledby="hero-heading"
     >
-      <MicroDecorHero />
-      <FloatingBackground density={12} seed={7} className="z-[1] opacity-40" />
+      {/* §9.1's face scatter. Behind everything, masked clear of the middle. */}
+      <FaceField />
 
-      <div className="relative z-10 mx-auto max-w-6xl">
-        <MicroCornerFrame className="hidden sm:block" />
-        <div className="relative mx-auto max-w-3xl lg:mx-0 lg:max-w-none">
-          <h1 className="mt-5 max-w-[22ch] text-balance text-4xl font-semibold leading-[1.05] tracking-[-0.03em] text-primary sm:text-5xl md:text-6xl lg:text-left">
-            what are you on right now
-          </h1>
+      <div className="relative z-10 mx-auto flex max-w-content flex-col items-center text-center">
+        <h1
+          id="hero-heading"
+          className="max-w-[15ch] text-balance text-48 font-semibold text-fg sm:text-64"
+        >
+          What are you on right now?
+        </h1>
 
-          <p className="mt-4 max-w-[42ch] text-base leading-relaxed tracking-[-0.01em] text-secondary">
-            a screen for your current state
-          </p>
+        <p className="mt-4 max-w-[46ch] text-18 text-muted">
+          Say what you&apos;re on. Post it anywhere. It stays live.
+        </p>
 
-          <SignupWidget
-            defaultLabel="create yours"
-            className="mt-7 w-full max-w-full sm:w-auto"
-          />
+        {/* The editor and its output, side by side above the fold on desktop
+          * and stacked on a phone with the card first — seeing the thing you
+          * are making is what makes typing into it feel like making. */}
+        <div className="mt-12 flex w-full flex-col items-center gap-10 lg:mt-16 lg:flex-row lg:items-center lg:justify-center lg:gap-16">
+          <div className="order-1 shrink-0 lg:order-2">
+            <Moodscreen
+              {...preview}
+              width={360}
+              className="max-w-full"
+              /* Held back for the one frame before localStorage is read, so a
+               * returning visitor never sees the default card flash past the
+               * one they made. */
+              style={{
+                opacity: storageHydrated ? 1 : 0,
+                transitionProperty: "opacity",
+                transitionDuration: "var(--dur-enter)",
+                transitionTimingFunction: "var(--ease)",
+              }}
+            />
+          </div>
+
+          <div className="order-2 flex w-full max-w-[440px] flex-col items-center gap-6 lg:order-1">
+            <StatementField
+              className="w-full"
+              value={formValue.statement}
+              onChange={(statement) => handleFormChange({ statement })}
+              placeholder={PLACEHOLDER_STATEMENT}
+            />
+
+            <MoodStrip
+              className="w-full"
+              value={formValue.mood}
+              onChange={(mood) => handleFormChange({ mood })}
+            />
+
+            <SurfaceControl
+              value={formValue.surface}
+              mood={formValue.mood}
+              at={moodscreenProps.at}
+              onChange={(surface) => handleFormChange({ surface })}
+            />
+          </div>
         </div>
+
+        {/* §9.1 — the CTA is the claim, not a create button. The work above is
+          * already done, so this asks for a name and nothing else. */}
+        <ClaimField className="mt-14 w-full max-w-[420px]" />
       </div>
     </section>
   );

@@ -2,13 +2,13 @@
  * Guest localStorage + authenticated Supabase persistence.
  * Canonical key: moodscreen_data (legacy moodscreen_guest_v1 still read + migrated).
  */
-import { legacyToMoodEntries, normalizeMoodEntries } from "../lib/moodCategories.js";
+import { isMoodId } from "../lib/moods.js";
 import {
   MOODSCREEN_PAYLOAD_VERSION,
   normalizeStoredMoodscreen,
-  standardEntriesFromMoodEntries,
 } from "../lib/moodscreenPayload.js";
-import { sanitizeMoodEntries } from "../lib/moodscreenValidation.js";
+import { FALLBACK_MOOD_ID } from "../lib/moodscreenModel.js";
+import { clampStatement } from "../lib/statementFit.js";
 import { DEFAULT_THEME_ID, isThemeId } from "../themes/index.js";
 import { DEFAULT_SURFACE, isSurfaceId } from "../themes/surface.js";
 import { supabase } from "../lib/supabaseClient.js";
@@ -25,31 +25,44 @@ const TABLE = "moodscreens";
 
 /**
  * Serialize app state for storage / Supabase `data` JSON.
- * Non-breaking: keeps moodEntries + adds normalized `entries` + timestamps.
+ *
+ * Writes v3 and nothing else. The pre-redesign `moodEntries` and `entries`
+ * arrays are gone from the write path — they were a second copy of the same
+ * fact, and keeping them alive alongside `mood`/`statement` would mean two
+ * sources for one Moodscreen and an argument about which wins. Reading them is
+ * still handled, in moodscreenPayload.js, which is where a migration belongs.
+ *
+ * `updated_at` is the stamp §7.4's night tint runs off, so it is written on
+ * every save and read back rather than being replaced by the reader's clock.
  */
 export function serializeMoodscreenState(state, meta = {}) {
   if (!state || typeof state !== "object") return {};
-  const moodEntries = Array.isArray(state.moodEntries)
-    ? sanitizeMoodEntries(state.moodEntries)
-    : sanitizeMoodEntries(legacyToMoodEntries(state));
 
   const createdAt =
     meta.createdAt ||
     (typeof state.created_at === "string" ? state.created_at : null) ||
     new Date().toISOString();
-  const updatedAt = new Date().toISOString();
+
+  /* The stamp travels with the state when there is one — a card carries the
+   * hour it was written, and a save that only changed the theme must not
+   * restamp it to now. The context decides when a moment is new. */
+  const updatedAt =
+    meta.updatedAt ||
+    (typeof state.updated_at === "string" ? state.updated_at : null) ||
+    new Date().toISOString();
 
   return {
     version: MOODSCREEN_PAYLOAD_VERSION,
     name: typeof state.name === "string" ? state.name : "",
     location: typeof state.location === "string" ? state.location : "",
-    moodEntries,
-    entries: standardEntriesFromMoodEntries(moodEntries),
-    link: typeof state.link === "string" ? state.link : "",
-    themeId: isThemeId(state.themeId) ? state.themeId : DEFAULT_THEME_ID,
-    /* §7.2 — the second of the user's two choices. Stored beside the theme
-     * rather than inside it: a theme owns type only. */
+    /* §7.2 — the user's two choices, side by side. */
+    mood: isMoodId(state.mood) ? state.mood : FALLBACK_MOOD_ID,
     surface: isSurfaceId(state.surface) ? state.surface : DEFAULT_SURFACE,
+    statement: clampStatement(typeof state.statement === "string" ? state.statement : ""),
+    link: typeof state.link === "string" ? state.link : "",
+    /* §7.7 — a theme owns type only, so it is stored beside the surface, not
+     * around it. */
+    themeId: isThemeId(state.themeId) ? state.themeId : DEFAULT_THEME_ID,
     avatarUrl:
       typeof state.avatarUrl === "string" && !state.avatarUrl.startsWith("blob:")
         ? state.avatarUrl
@@ -103,6 +116,8 @@ function writeGuestMoodscreenInternal(normalizedLike) {
   const payload = serializeMoodscreenState(normalizedLike, {
     createdAt:
       typeof normalizedLike.created_at === "string" ? normalizedLike.created_at : undefined,
+    updatedAt:
+      typeof normalizedLike.updated_at === "string" ? normalizedLike.updated_at : undefined,
   });
   window.localStorage.setItem(MOODSCREEN_DATA_KEY, JSON.stringify(payload));
 }
@@ -110,18 +125,13 @@ function writeGuestMoodscreenInternal(normalizedLike) {
 export function writeGuestMoodscreen(state, meta = {}) {
   if (typeof window === "undefined") return;
   try {
-    const moodEntries = Array.isArray(state?.moodEntries)
-      ? normalizeMoodEntries(state.moodEntries)
-      : legacyToMoodEntries(state || {});
-    const base = {
-      ...state,
-      moodEntries,
-      created_at:
+    const payload = serializeMoodscreenState(state ?? {}, {
+      createdAt:
         meta.createdAt ||
         (typeof state?.created_at === "string" ? state.created_at : undefined),
-    };
-    const payload = serializeMoodscreenState(base, {
-      createdAt: base.created_at,
+      updatedAt:
+        meta.updatedAt ||
+        (typeof state?.updated_at === "string" ? state.updated_at : undefined),
     });
     window.localStorage.setItem(MOODSCREEN_DATA_KEY, JSON.stringify(payload));
     try {
@@ -199,6 +209,9 @@ export async function migrateGuestStorageToUser(userId) {
     typeof guest.created_at === "string" ? guest.created_at : new Date().toISOString();
   const { error } = await upsertMoodscreenForUser(userId, { ...guest, created_at: createdAt }, {
     createdAt,
+    /* Signing in is not a new moment — §7.4's tint belongs to the hour the
+     * Moodscreen was written, not the hour an account was attached to it. */
+    updatedAt: typeof guest.updated_at === "string" ? guest.updated_at : undefined,
   });
   if (error) return { migrated: false, error };
   clearGuestMoodscreen();

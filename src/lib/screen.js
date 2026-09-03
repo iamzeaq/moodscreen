@@ -75,13 +75,31 @@ const SCREEN_SEGMENTS = [
   [[EDGE, 75], [27, 43], [43, 27], [75, EDGE]],
 ];
 
-export const SCREEN_PATH = [
-  `M${SCREEN_SEGMENTS[0][0][0]} ${SCREEN_SEGMENTS[0][0][1]}`,
-  ...SCREEN_SEGMENTS.map(
-    ([, c1, c2, end]) => `C${c1[0]} ${c1[1]}, ${c2[0]} ${c2[1]}, ${end[0]} ${end[1]}`,
-  ),
-  "Z",
-].join(" ");
+/**
+ * The segments written out as an SVG `d`, with x and y mapped independently.
+ *
+ * Independently, because the outline is used on things that are not square.
+ * The primary button (§10) is the same screen at roughly 210x68, and a uniform
+ * scale would either letterbox it or draw a shape three times too tall. Two
+ * mappings also means there is still exactly one set of coordinates in the
+ * project: everything below is this function with different arguments.
+ */
+function writePath(fx, fy) {
+  const p = (n) => Math.round(n * 100) / 100;
+  return [
+    `M${p(fx(SCREEN_SEGMENTS[0][0][0]))} ${p(fy(SCREEN_SEGMENTS[0][0][1]))}`,
+    ...SCREEN_SEGMENTS.map(
+      ([, c1, c2, end]) =>
+        `C${p(fx(c1[0]))} ${p(fy(c1[1]))}, ${p(fx(c2[0]))} ${p(fy(c2[1]))}, ` +
+        `${p(fx(end[0]))} ${p(fy(end[1]))}`,
+    ),
+    "Z",
+  ].join(" ");
+}
+
+const identity = (n) => n;
+
+export const SCREEN_PATH = writePath(identity, identity);
 
 /**
  * The same path in 0..1, for `clipPathUnits="objectBoundingBox"`.
@@ -137,6 +155,64 @@ export function screenTop(size) {
 export function screenPathAt(size) {
   const k = size / SCREEN_VIEWBOX;
   return SCREEN_PATH.replace(/-?\d*\.?\d+/g, (n) => String(Math.round(Number(n) * k * 100) / 100));
+}
+
+/**
+ * The same outline fitted to a box that is not square — CLAUDE.md §10.
+ *
+ * The primary button is the screen in miniature rather than a pill, and it is
+ * a wide box, so the two axes scale by different factors. That stretches the
+ * corners into ellipses and shortens the vertical bow, which is what a
+ * widescreen CRT actually looks like; it is not a compromise.
+ *
+ * Written from SCREEN_SEGMENTS rather than by rescaling the `d` string,
+ * because a regex over that string cannot tell an x from a y.
+ */
+export function screenPathBox(width, height) {
+  const kx = width / SCREEN_VIEWBOX;
+  const ky = height / SCREEN_VIEWBOX;
+  return writePath((x) => x * kx, (y) => y * ky);
+}
+
+/* ------------------------------------------------------- the edge as a rule */
+
+/**
+ * The top edge on its own, normalised — the source of the section divider.
+ *
+ * §9's page is a stack of screens, so the thing that separates two sections is
+ * the edge of one, not a horizontal rule. This is that single cubic with its
+ * ends pinned to 0 and 1 on both axes, so a divider of any width and any depth
+ * is the screen's own curve rather than a bezier drawn to look like it.
+ *
+ * The control points come out at x 0.3 and 0.7 with y flat at the peak, which
+ * is the shape the eye reads as "the top of something", and the reason the
+ * divider works at 1120px when a hand-drawn arc of the same depth does not.
+ */
+export const EDGE_CURVE = (() => {
+  const [start, c1, c2, end] = SCREEN_SEGMENTS[0];
+  const span = end[0] - start[0];
+  const peak = Math.min(c1[1], c2[1]);
+  const depth = start[1] - peak;
+  const nx = (x) => Math.round(((x - start[0]) / span) * 1e4) / 1e4;
+  const ny = (y) => Math.round(((y - peak) / depth) * 1e4) / 1e4;
+  return { c1: [nx(c1[0]), ny(c1[1])], c2: [nx(c2[0]), ny(c2[1])] };
+})();
+
+/**
+ * That curve as a `d` for a `width` x `depth` box.
+ *
+ * `up` bows toward the top of the box — the screen's top edge, so the section
+ * below it reads as a screen beginning. `down` is its mirror, the bottom edge,
+ * so the section above it reads as one ending. Alternating the two down the
+ * page is what makes it a stack rather than a set of arcs.
+ */
+export function edgeCurvePath(width, depth, direction = "up") {
+  const { c1, c2 } = EDGE_CURVE;
+  const y = direction === "up" ? (t) => depth * t : (t) => depth * (1 - t);
+  return (
+    `M0 ${y(1)} ` +
+    `C${width * c1[0]} ${y(c1[1])}, ${width * c2[0]} ${y(c2[1])}, ${width} ${y(1)}`
+  );
 }
 
 /* ------------------------------------------------------- the drawn edge */

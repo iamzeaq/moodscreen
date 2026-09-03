@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import AuthModalHost from "./components/AuthModalHost.jsx";
 import GrainLayer from "./components/GrainLayer.jsx";
+import ScreenClipDef from "./components/brand/ScreenClip.jsx";
 import OnboardingGate from "./components/OnboardingGate.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import { MoodscreenProvider } from "./context/MoodscreenContext.jsx";
@@ -24,6 +25,9 @@ export default function App() {
         <MoodscreenProvider>
           {/* One grain layer for the whole app (CLAUDE.md §7). */}
           <GrainLayer />
+          {/* The screen outline as a scalable clip, for site chrome. The card
+            * clips with a literal path of its own — see ScreenClip.jsx. */}
+          <ScreenClipDef />
           <Suspense fallback={<RouteFallback />}>
             <Routes>
               <Route path="/" element={<LandingPage />} />

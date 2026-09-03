@@ -6,12 +6,16 @@ import {
   isUsernameSlugValid,
   normalizeUsernameSlug,
 } from "../lib/profileUtils.js";
+import { clearClaim, readClaim } from "../lib/claimedUsername.js";
 
 export default function OnboardingPage() {
   const { user, sessionReady, profileLoading, refreshProfile, isSupabaseConfigured } =
     useAuth();
   const navigate = useNavigate();
-  const [username, setUsername] = useState("");
+  /* Prefilled with whatever was typed into the claim field before sign-in —
+   * §9.1's whole argument is that the work is already done by then, and asking
+   * for the same name twice is how that gets undone. */
+  const [username, setUsername] = useState(() => readClaim());
   const [location, setLocation] = useState("");
   const [status, setStatus] = useState("");
   const [error, setError] = useState(null);
@@ -60,6 +64,7 @@ export default function OnboardingPage() {
       setError(taken ? "That username is taken." : msg.length < 120 ? msg : "Could not save.");
       return;
     }
+    clearClaim();
     await refreshProfile();
     navigate(`/${slug}`, { replace: true });
   }

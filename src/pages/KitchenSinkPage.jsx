@@ -10,6 +10,11 @@ import Button from "../components/ui/Button.jsx";
 import Input, { UsernameInput } from "../components/ui/Input.jsx";
 import Logo, { LOGO_MOODS } from "../components/brand/Logo.jsx";
 import Wordmark from "../components/brand/Wordmark.jsx";
+import ScreenButton from "../components/brand/ScreenButton.jsx";
+import ScreenDivider from "../components/brand/ScreenDivider.jsx";
+import MoodStrip from "../components/editor/MoodStrip.jsx";
+import StatementField from "../components/editor/StatementField.jsx";
+import SurfaceControl from "../components/editor/SurfaceControl.jsx";
 import Moodscreen from "../components/Moodscreen.jsx";
 import MoodscreenExportSurface, { nodeIdsFor } from "../components/MoodscreenExportSurface.jsx";
 import { MOODS, DEFAULT_ACCENT, accentForMood } from "../lib/moods.js";
@@ -465,6 +470,46 @@ export default function KitchenSinkPage() {
             </div>
           ))}
         </div>
+      </Section>
+
+      {/* -------------------------------------------------- the editor */}
+      <Section
+        title="The editor"
+        note="Three controls and no more: the statement, the mood, the surface. §7.2's two user choices plus the thing they are choices about. The strip is §7.9's wheel as a line — ten stops ordered by hue, scrubbed with a pointer, snapping by construction rather than by rounding, and committing on every move so the card follows the drag instead of the release."
+      >
+        <div className="flex max-w-[440px] flex-col gap-6">
+          <StatementField value={statement} onChange={setStatement} />
+          <MoodStrip value={moodId} onChange={setMoodId} />
+          <SurfaceControl
+            value={surface}
+            mood={moodId}
+            at={live.at}
+            onChange={setSurface}
+          />
+        </div>
+      </Section>
+
+      {/* -------------------------------------------- the screen as chrome */}
+      <Section
+        title="The screen, off the card"
+        note="The outline is the brand, so the primary action wears it and so does the line between two sections. Both are screenPathBox and edgeCurvePath — the same eight cubics the Moodscreen is drawn from, fitted to a different box. The button steps to the next mood round the hue ring on hover; the divider alternates top edge and bottom edge down the page so it reads as a stack of screens."
+      >
+        <Row label="Primary action — rest, loading, disabled">
+          <ScreenButton mood={moodId}>Claim yours</ScreenButton>
+          <ScreenButton mood={moodId} loading>
+            Claim yours
+          </ScreenButton>
+          <ScreenButton mood={moodId} disabled>
+            Claim yours
+          </ScreenButton>
+        </Row>
+
+        <Row label="Divider — top edge, then bottom edge">
+          <div className="flex w-full flex-col gap-8">
+            <ScreenDivider direction="up" contained={false} />
+            <ScreenDivider direction="down" contained={false} />
+          </div>
+        </Row>
       </Section>
 
       <Section

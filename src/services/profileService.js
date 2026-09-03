@@ -3,7 +3,7 @@
  */
 import { supabase } from "../lib/supabaseClient.js";
 import { normalizeUsernameSlug } from "../lib/profileUtils.js";
-import { sanitizeMoodEntries } from "../lib/moodscreenValidation.js";
+import { FALLBACK_MOOD_ID } from "../lib/moodscreenModel.js";
 import { upsertMoodscreenForUser } from "./moodscreenDataService.js";
 
 function notConfigured() {
@@ -85,14 +85,17 @@ export async function completeOnboarding(userId, fields) {
     .join(" ")
     .trim() || username;
 
-  const moodEntries = sanitizeMoodEntries([{ categoryId: "thinking", text: statusText }]);
-
   const { error: e2 } = await upsertMoodscreenForUser(
     userId,
     {
       name: displayName,
       location,
-      moodEntries,
+      /* Onboarding asks one question and it is the statement. The mood is the
+       * other of §7.2's two choices and is picked on the strip, so a first
+       * Moodscreen starts on the default rather than having one guessed for
+       * it from the words. */
+      mood: FALLBACK_MOOD_ID,
+      statement: statusText,
       link: "",
       avatarUrl: null,
     },
