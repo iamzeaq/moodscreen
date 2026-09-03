@@ -36,14 +36,26 @@ export default function ClaimField({
    * wins is decided by their order in the stylesheet, not in the class string.
    */
   align = "center",
+  /**
+   * Rendered beside the claim button. The hero puts Download here, because
+   * these are the two things you can do with a finished Moodscreen and they
+   * belong in the same row — but they are not the same action, and the claim
+   * must never be mistaken for the way to get the file.
+   */
+  secondaryAction = null,
   onClaim,
 }) {
-  const [raw, setRaw] = useState("");
   const [error, setError] = useState(null);
   const { user, sessionReady, profile, openAuthModal } = useAuth();
-  const { moodscreenProps } = useMoodscreen();
+  /**
+   * The typed handle lives in the context, not here, so the Moodscreen wears
+   * it as it is typed. Keeping it local was the bug: the field looked like the
+   * place you put your name and the card never acknowledged it.
+   */
+  const { moodscreenProps, draftUsername, setDraftUsername } = useMoodscreen();
   const navigate = useNavigate();
 
+  const raw = draftUsername;
   const slug = useMemo(() => normalizeUsernameSlug(raw), [raw]);
 
   const submit = useCallback(
@@ -97,16 +109,22 @@ export default function ClaimField({
         className="w-full"
         value={raw}
         onChange={(e) => {
-          setRaw(e.target.value);
+          /* Normalised on the way in, so what the field shows and what the
+           * card shows are the same string — a space typed here would
+           * otherwise appear as an underscore on the Moodscreen. */
+          setDraftUsername(normalizeUsernameSlug(e.target.value));
           if (error) setError(null);
         }}
         error={error}
         aria-label="Claim moodscreen.live/yourname"
       />
 
-      <ScreenButton type="submit" mood={moodscreenProps.mood}>
-        Claim yours
-      </ScreenButton>
+      <div className="flex flex-wrap items-center gap-3">
+        <ScreenButton type="submit" mood={moodscreenProps.mood}>
+          Claim yours
+        </ScreenButton>
+        {secondaryAction}
+      </div>
     </form>
   );
 }

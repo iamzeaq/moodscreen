@@ -174,6 +174,25 @@ const DEFAULT_FORM = {
   avatarUrl: null,
 };
 
+/**
+ * What the card reads before anyone has typed a statement.
+ *
+ * It lives here rather than in the hero, and that is the whole point. When the
+ * hero owned it, the preview showed this sentence while the off-screen export
+ * node showed an empty card — the two disagreed, so exporting handed someone a
+ * different image from the one on screen. The fix for that was a disabled
+ * button, which turned "click download" into a silent no-op for anyone who had
+ * not written anything yet.
+ *
+ * Putting it in the props both surfaces read makes them agree by construction,
+ * which is §7's rule, and the export control can then simply always work.
+ *
+ * Still never persisted: `statement` in state stays empty until the visitor
+ * writes one, so their first keystroke starts a sentence rather than deleting
+ * someone else's.
+ */
+export const PLACEHOLDER_STATEMENT = "shipping the thing I promised";
+
 const MoodscreenContext = createContext(null);
 
 export function MoodscreenProvider({ children }) {
@@ -196,6 +215,20 @@ export function MoodscreenProvider({ children }) {
   const [postedAt, setPostedAt] = useState(() => new Date().toISOString());
   const keepStampRef = useRef(true);
   const [avatarUrl, setAvatarUrl] = useState(DEFAULT_FORM.avatarUrl);
+
+  /**
+   * The handle being typed into the claim field, before it is claimed.
+   *
+   * It lives in the context rather than inside <ClaimField> because the card
+   * has to show it. §9.1's argument for putting the claim after the editor is
+   * that the work is already done by the time it is asked for — and a field
+   * that writes `moodscreen.live/yourname` on the Moodscreen as you type is
+   * what makes that true rather than merely stated.
+   *
+   * Not persisted here: nothing has been claimed yet. `rememberClaim` stashes
+   * it on submit so it survives the sign-in redirect.
+   */
+  const [draftUsername, setDraftUsername] = useState("");
 
   const [hydrated, setHydrated] = useState(false);
   const hydrateGen = useRef(0);
@@ -395,13 +428,24 @@ export function MoodscreenProvider({ children }) {
     [profile?.username],
   );
 
-  /** Everything <Moodscreen> needs, and nothing else. */
+  /**
+   * Everything <Moodscreen> needs, and nothing else.
+   *
+   * Every surface reads this — the hero preview, the studio preview and the
+   * two off-screen export nodes — so the placeholder and the draft handle are
+   * applied here and nowhere else. A caller that substituted its own would put
+   * the preview and the exported PNG out of step, which is exactly what §7's
+   * one-component rule exists to make impossible.
+   */
   const moodscreenProps = useMemo(
     () => ({
       mood,
-      statement,
+      statement: statement || PLACEHOLDER_STATEMENT,
       name: (name || "").trim(),
-      username,
+      /* A claimed handle wins; until there is one, the card wears whatever is
+       * being typed into the claim field. Neither is faked: with both empty
+       * the lockup reads `moodscreen.live`, which is true. */
+      username: username || draftUsername,
       avatarUrl: avatarUrl ?? "",
       themeId,
       surface,
@@ -413,7 +457,7 @@ export function MoodscreenProvider({ children }) {
        */
       at: postedAt,
     }),
-    [mood, statement, name, username, avatarUrl, themeId, surface, postedAt],
+    [mood, statement, name, username, draftUsername, avatarUrl, themeId, surface, postedAt],
   );
 
   /**
@@ -470,7 +514,7 @@ export function MoodscreenProvider({ children }) {
           const blob = await captureMoodscreenBlob(node, { theme });
           if (cancelled) return;
 
-          const filename = exportFilename(username, name);
+          const filename = exportFilename(moodscreenProps.username, name);
           preparedRef.current = {
             key: exportKey,
             blob,
@@ -489,7 +533,7 @@ export function MoodscreenProvider({ children }) {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [exportKey, hydrated, themeId, username, name]);
+  }, [exportKey, hydrated, themeId, moodscreenProps.username, name]);
 
   /** The blob for right now — the pre-rendered one if it is still current. */
   const currentPrepared = useCallback(() => {
@@ -503,9 +547,12 @@ export function MoodscreenProvider({ children }) {
     const theme = getTheme(formValueRef.current?.themeId);
     await ensureMoodscreenFontsReady(theme);
     const blob = await captureMoodscreenBlob(node, { theme });
-    const filename = exportFilename(username, formValueRef.current?.name);
+    /* The handle the card is wearing, not only a claimed one — a guest who has
+     * typed a name into the claim field gets `moodscreen-isaac.png` rather than
+     * a file named after nobody. */
+    const filename = exportFilename(moodscreenProps.username, formValueRef.current?.name);
     return { blob, filename };
-  }, [username]);
+  }, [moodscreenProps.username]);
 
   const downloadPng = useCallback(async () => {
     if (isExporting) return;
@@ -653,6 +700,8 @@ export function MoodscreenProvider({ children }) {
       initials,
       storageHydrated: hydrated,
       storageNotice,
+      draftUsername,
+      setDraftUsername,
     }),
     [
       formValue,
@@ -668,6 +717,7 @@ export function MoodscreenProvider({ children }) {
       initials,
       hydrated,
       storageNotice,
+      draftUsername,
     ],
   );
 

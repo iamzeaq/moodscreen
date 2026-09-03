@@ -21,7 +21,6 @@
  * left-aligned or full-bleed, and that contrast is what stops the page reading
  * as a stack of centred boxes.
  */
-import { useMemo } from "react";
 import Moodscreen from "./Moodscreen.jsx";
 import MoodStrip from "./editor/MoodStrip.jsx";
 import StatementField from "./editor/StatementField.jsx";
@@ -29,17 +28,7 @@ import SurfaceControl from "./editor/SurfaceControl.jsx";
 import { FaceField } from "./brand/FaceField.jsx";
 import ClaimField from "./ClaimField.jsx";
 import Button from "./ui/Button.jsx";
-import { useMoodscreen } from "../context/MoodscreenContext.jsx";
-
-/**
- * What the card shows before anyone has typed.
- *
- * Never persisted and never exported — the stored statement stays empty until
- * the visitor writes one, so their first keystroke starts a sentence rather
- * than deleting someone else's. The card cannot be blank while they decide,
- * though: an empty Moodscreen looks broken, not inviting.
- */
-const PLACEHOLDER_STATEMENT = "shipping the thing I promised";
+import { PLACEHOLDER_STATEMENT, useMoodscreen } from "../context/MoodscreenContext.jsx";
 
 export default function Hero() {
   const {
@@ -47,24 +36,10 @@ export default function Hero() {
     handleFormChange,
     moodscreenProps,
     storageHydrated,
-    sharePng,
+    downloadPng,
     isExporting,
-    shareReady,
     downloadError,
   } = useMoodscreen();
-
-  /** Has the visitor written anything, or is the card still the example? */
-  const written = Boolean(moodscreenProps.statement.trim());
-
-  const preview = useMemo(
-    () => ({
-      ...moodscreenProps,
-      statement: moodscreenProps.statement || PLACEHOLDER_STATEMENT,
-      name: moodscreenProps.name || "you",
-      username: moodscreenProps.username || "yourname",
-    }),
-    [moodscreenProps],
-  );
 
   return (
     <section
@@ -91,8 +66,11 @@ export default function Hero() {
           * are making is what makes typing into it feel like making. */}
         <div className="mt-12 flex w-full flex-col items-center gap-10 lg:mt-16 lg:flex-row lg:items-center lg:justify-center lg:gap-16">
           <div className="order-1 shrink-0 lg:order-2">
+            {/* Exactly the props the export nodes get — no local
+              * substitutions. That is what makes the saved PNG the image on
+              * screen rather than a near-miss of it. */}
             <Moodscreen
-              {...preview}
+              {...moodscreenProps}
               width={360}
               className="max-w-full"
               /* Held back for the one frame before localStorage is read, so a
@@ -127,45 +105,37 @@ export default function Hero() {
               at={moodscreenProps.at}
               onChange={(surface) => handleFormChange({ surface })}
             />
-
-            {/* §1 is guest-first: "anyone can make and share a Moodscreen with
-              * no account". The hero is where it gets made, so it has to be
-              * where it can be taken away — sending someone to /create to get
-              * their own image out puts a route in front of the one thing the
-              * product is for.
-              *
-              * Secondary, not primary. §10 allows one primary action per view
-              * and that is the claim below; this is the other thing you might
-              * do with what you just made, not a rival to it. On a browser
-              * with no share sheet it saves the PNG instead — see sharePng. */}
-            {/* Disabled until there is a statement, because until then the
-              * card on screen is showing PLACEHOLDER_STATEMENT and the export
-              * node is showing nothing. Exporting there would hand someone a
-              * different image from the one in front of them, which is the
-              * drift §7 exists to prevent — the placeholder is an example, and
-              * an example is not yours to post. */}
-            <Button
-              variant="secondary"
-              onClick={sharePng}
-              disabled={!written}
-              loading={isExporting && !shareReady}
-              title={written ? undefined : "Say what you're on first"}
-              className="mt-2"
-            >
-              Drop your Moodscreen
-            </Button>
-
-            {downloadError ? (
-              <p className="max-w-[36ch] text-center text-12 text-danger" role="alert">
-                {downloadError}
-              </p>
-            ) : null}
           </div>
         </div>
 
         {/* §9.1 — the CTA is the claim, not a create button. The work above is
-          * already done, so this asks for a name and nothing else. */}
-        <ClaimField className="mt-14 w-full max-w-[420px]" />
+          * already done, so this asks for a name and nothing else.
+          *
+          * Download sits beside it because §1 is guest-first: "anyone can make
+          * and share a Moodscreen with no account". The hero is where it gets
+          * made, so it has to be where it can be taken away. The two are one
+          * row and two different acts — claiming keeps the page, downloading
+          * takes the image — and nothing about the claim should read as the
+          * way to get the file. */}
+        <ClaimField
+          className="mt-14 w-full max-w-[420px]"
+          secondaryAction={
+            <Button
+              variant="secondary"
+              size="lg"
+              onClick={downloadPng}
+              loading={isExporting}
+            >
+              Download
+            </Button>
+          }
+        />
+
+        {downloadError ? (
+          <p className="mt-4 max-w-[40ch] text-center text-13 text-danger" role="alert">
+            {downloadError}
+          </p>
+        ) : null}
       </div>
     </section>
   );
