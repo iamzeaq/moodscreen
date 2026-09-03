@@ -225,10 +225,9 @@ mid-range Android, which is a large share of the audience.
 **No scroll-triggered stagger reveals on sections.** That is the clearest
 generated-page signature. The motion budget is spent on four moments only:
 
-1. Mood change cross-fades the Moodscreen's colour — 240ms. Colour only: the
-   glyph that used to cross-fade with it was the §7.3 watermark, which is gone.
-   The mark beside the label and the one in the lockup are small and at full
-   ink, and swap.
+1. Mood change cross-fades the Moodscreen's colour and glyph — 240ms. The glyph
+   is the §7.3 watermark; the small marks beside the label and in the lockup are
+   at full ink and simply swap.
 2. The live status dot breathes, `scale 1 → 1.15`, 2.4s, infinite.
 3. Pulse counters roll their digits vertically when values change — 180ms.
 4. The hero Moodscreen scales down and joins the wall on scroll —
@@ -318,24 +317,51 @@ nothing and the Pro free-hue wheel works with no extra data.
 3  vignette            radial, ink at 10-14%, starting at 60% radius
 4  scanlines           horizontal, 6px pitch, 2.2px line
 5  grain               tiled PNG, 6-9%
-6  content             §7.5
+6  glyph watermark     mood face, whole, 106px, 13%, low and centred
+7  content             §7.5
 ```
 
-**There is no glyph watermark layer.** There was one — the mood's face blown up
-behind the content and cropped by the screen edge — and it cannot be built,
-because the two halves of that brief contradict each other in the mark's own
-proportions. Taking the face's ink box as 0..1, the eyes occupy 0.196-0.326 and
-0.674-0.804 while the widest mouths (`coding`, `creating`, `learning`, round
-caps included) run 0.217-0.783. The mouth overlaps both eyes horizontally, so
-any cut that removes an eye also cuts those mouths, from either side, at any
-size — these are fractions, and scaling does not move them.
+**Layer 6 is whole, never cropped.** Two earlier passes blew the face up and cut
+it against the screen edge, and the result does not read as a face running out of
+frame — it reads as a rendering fault, which is the one thing a brand mark must
+never look like.
 
-Uncropped it failed differently. At 186px the strokes are 24px thick, the eyes
-stand 89px apart and the mouth hangs 80px below them; at 14% nothing groups
-three marks that far apart, and it rendered as two vertical bars and a detached
-blob. The card also already carries this face twice — 24px beside the mood
-label, 17px in the lockup, both at full ink — so the third copy was never
-carrying a cue the card lacked. Do not reintroduce it.
+It also cannot be drawn as specified, so do not try again. Taking the face's ink
+box as 0..1, the eyes occupy 0.196-0.326 and 0.674-0.804 while the widest mouths
+(`coding`, `creating`, `learning`, round caps included) run 0.217-0.783. The
+mouth overlaps both eyes horizontally, so any cut that removes an eye also cuts
+those mouths, from either side, at any size — these are fractions, and scaling
+does not move them.
+
+**Its size is set by the band, not by taste.** The mark sits in the gap between
+the statement and the lockup, centred horizontally, whole and clear of both, and
+that gap is the entire budget. Measured across the three glyph themes and the
+§7.6 ladder, the statement bottoms out at 386.3 — `classic`, a four-line
+statement — and the lockup starts at 476. **89.7px, and that is all there is.**
+
+Which is why 186 keeps failing and must not be tried a third time. A whole mark
+at Logo size 186 draws a face 107×121; at 186px of *face* it is 186×210. Neither
+fits in 89.7, so "186, whole, inside the path, clear of the statement" is not a
+tuning problem — the four cannot hold at once, at any opacity or position. **106
+is the largest size that leaves ~10px of air above and below in the worst case**,
+and it draws a face half again the size of the 70px version that preceded it.
+
+To go materially bigger, something else has to give, and both costs are real:
+let the mark run behind the lockup (the band down to the bottom edge is 136px,
+which does fit ~185) and accept the wordmark sitting across its mouth, which is
+the "blob behind the logo" the cropped versions were rejected for; or move the
+centre stack back up and give up the centring above.
+
+It takes the card's ink via `currentColor` and is centred on the same axis as the
+lockup, so the two read as one column of brand. Centred, not cornered — a corner
+is where you put a mark you are apologising for.
+
+Anchor it by the **face's own bottom** against the lockup, not by the element
+box: the 40-unit viewBox is mostly margin, so an element-box offset leaves the
+visible gap wrong by ~14px. Use `MARK_INK_BOTTOM`, which is set by `speaking`'s
+circle — the deepest mouth of any mood — so every mood clears. The lockup is
+fixed and the statement is not, so that is the end that can be guaranteed; check
+the statement end against the worst case above, not against a comfortable one.
 
 Scanline opacity is per surface: `colour` 13%, `ink` 5.5%, `paper` 4%. Dark
 texture on a light field reads much stronger, so paper needs it dialled back —
@@ -415,25 +441,36 @@ corner-aligned — corner reads as a watermark someone forgot to remove.
 is a bare circle, `offline` a single straight line — and they carry no mood at
 small sizes. The face does, and it means something at every size.
 
-One component, two sizes: 17px in the lockup and 24px beside the mood label.
-Eyes stay fixed; only the mouth path changes per mood, so adding a mood is one
-path rather than a new drawing. The existing icon set stays in the repo for
-other uses.
+One component, three sizes: 17px in the lockup, 24px beside the mood label, and
+106px as the §7.3 watermark. Eyes stay fixed; only the mouth path changes per
+mood, so adding a mood is one path rather than a new drawing. The existing icon
+set stays in the repo for other uses.
 
 ### Vertical placement
 
 The three groups are **positioned, not stacked**. The timestamp is a corner
 mark and the lockup is a footer, so neither belongs in a column with the centre
 stack: as a flex row the 12px timestamp takes full-width layout at the top and
-drags the whole reference frame down with it, and the stack then centres in the
-space below the timestamp while the eye centres it in the space below the card's
-edge. The two disagree by about 29px, which reads as a void above the avatar.
+drags the whole reference frame down with it.
 
-So the centre stack owns the field from the **drawn top edge** — the bow carries
-it above the safe inset, so measure it off the path — down to the top of the
-lockup, and is optically centred in it. Optically, not geometrically: the frame's
-top boundary is an empty edge and its bottom boundary is the lockup's ink, and
-mass at the bottom pulls the perceived centre down, so lift the stack ~6px off it.
+**The centre stack centres on the card's own middle** — a frame symmetric about
+the centre, running from the drawn top edge (the bow carries it above the safe
+inset, so measure it off the path) to its mirror at the bottom.
+
+It is tempting to centre it in the gap between the timestamp and the lockup
+instead. That is geometrically honest and reads wrong every time: it leaves a
+deep band under the statement with the top pulled tight. The two boundaries are
+nothing like each other in weight — the top is the card's own drawn edge, a hard
+full-contrast boundary, while the bottom is one 15px line with its domain half
+at 60% opacity, a light mark the eye reads through rather than stops at. A heavy
+boundary repels and a light one does not, so the perceived field runs past the
+lockup to the bottom edge. The timestamp and the lockup are marks in the
+margins, not walls, and the stack centres on the object they sit on.
+
+That lands the stack about 23px below the geometric answer, and it falls out of
+the symmetric frame rather than a tuned constant — so it stays true if the safe
+inset or the lockup's height ever move. Check any change to it against a short,
+a medium and a 100-character statement; the longest has the least room to give.
 
 ### 7.6 The statement
 
@@ -473,7 +510,7 @@ themes still look like one product.
     lineHeight: 1.35,
     scale: [30, 24, 18, 14],
   },
-  texture: 'scanline' | 'none',
+  texture: 'scanline' | 'glyph',
 }
 ```
 

@@ -21,5 +21,5 @@ export const classic = {
     scale: [58, 46, 36, 28],
   },
 
-  texture: "none",
+  texture: "glyph",
 };

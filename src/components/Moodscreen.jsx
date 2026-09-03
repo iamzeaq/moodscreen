@@ -18,7 +18,8 @@
  * arrangement (the user owns it, via `surface`), or the hour (the timestamp
  * owns it). All three arrive as data and meet in resolveSurface.
  */
-import Logo from "./brand/Logo.jsx";
+import { useEffect, useRef, useState } from "react";
+import Logo, { MARK_INK_BOTTOM, MARK_VIEWBOX } from "./brand/Logo.jsx";
 import { getMood, MOODS } from "../lib/moods.js";
 import { safeInset, safeSideInset, screenPathAt, screenTop } from "../lib/screen.js";
 import { statementSize } from "../lib/statementFit.js";
@@ -53,37 +54,33 @@ const PAD_MIDDLE = safeSideInset(...BAND_MIDDLE, BASE_SIZE);
 const PAD_BOTTOM = safeSideInset(...BAND_BOTTOM, BASE_SIZE);
 
 /**
- * The frame the centre stack is centred in: the drawn top edge down to the top
- * of the lockup.
+ * Where the lockup sits, and the frame the centre stack is centred in.
  *
  * The three groups used to be a flex column, which sounds right and is not.
  * A column makes the timestamp a *row*: 12px of full-width layout at the top
- * of the card, which pushes the stack below it down by half that and, more to
- * the point, moves the whole reference frame down with it. The stack then
- * centres in the space below the timestamp while the eye centres it in the
- * space below the card's edge, and the two disagree by the 29px that read as
- * a void above the avatar.
+ * of the card, which pushes everything below it down and, more to the point,
+ * moves the whole reference frame down with it. So the timestamp and the
+ * lockup are positioned, not stacked, and reserve no height.
  *
- * The timestamp is a corner mark — §7.5 gives it the top-right and nothing
- * else — so it is positioned, not stacked, and reserves no height. The stack
- * then owns the whole field from the edge to the lockup, which is the space
- * the eye was measuring all along.
+ * What is left is the question of what the stack should centre *in*, and the
+ * answer is not the gap between those two marks. Centring in [drawn edge,
+ * lockup] is geometrically honest and reads wrong every time: it leaves a deep
+ * band under the statement with the top pulled tight. The two boundaries are
+ * nothing like each other in weight. The top is the card's own drawn edge, a
+ * hard full-contrast boundary where the surface stops. The bottom is one 15px
+ * line with its domain half at 60% opacity — a light mark the eye reads
+ * through rather than stops at. A heavy boundary repels; a light one does not,
+ * so the perceived field runs on past the lockup to the bottom edge.
+ *
+ * Which makes the target the card's own middle. The timestamp and the lockup
+ * are marks in the margins, not walls, and the stack centres on the object
+ * they sit on. That is a ~23px drop from the geometric answer, and it falls
+ * out of a frame symmetric about the centre rather than a tuned constant — so
+ * it stays true if the safe inset or the lockup's height ever move.
  */
 const LOCKUP_TOP = BASE_SIZE - SAFE_V - LOCKUP_H;
 const STACK_TOP = screenTop(BASE_SIZE);
-const STACK_HEIGHT = LOCKUP_TOP - STACK_TOP;
-
-/**
- * The optical half of "optically centred".
- *
- * Geometric centring in that frame leaves the stack looking a shade low,
- * because the frame is not symmetric in weight: its top boundary is an empty
- * drawn edge and its bottom boundary is the lockup, which is ink. Mass at the
- * bottom pulls the perceived centre down, so the stack is lifted back off it.
- * Applied as bottom padding on a centred flex box, which shifts the content up
- * by half — hence the doubling at the point of use.
- */
-const OPTICAL_LIFT = 6;
+const STACK_HEIGHT = BASE_SIZE - 2 * STACK_TOP;
 
 /** Baked once: the clip every layer inside the screen is cut to. */
 const CLIP = `path("${screenPathAt(BASE_SIZE)}")`;
@@ -113,29 +110,58 @@ const VIGNETTE_OPACITY = { colour: 0.14, ink: 0.1, paper: 0.07 };
 const GRAIN_OPACITY = 0.07;
 
 /**
- * There is no glyph watermark layer, and §7.3's layer 6 is gone with it.
+ * §7.3 layer 6 — the mood's face, **whole**.
  *
- * It asked for the mood's face blown up and *cropped by the screen edge*, on
- * the test that what remains still reads as a face. Those two cannot both
- * hold, and the reason is in the mark's own proportions rather than in any
- * choice of size or position. Taking the face's ink box as 0..1: the eyes sit
- * at 0.196..0.326 and 0.674..0.804, while the widest mouths — `coding`,
+ * Whole is the whole point. The first two attempts blew the face up and cropped
+ * it against the screen edge, and a cropped three-stroke face does not read as
+ * a face partly out of frame; it reads as a rendering fault. Worse, the crop
+ * that layer wanted cannot be drawn: taking the face's ink box as 0..1 the eyes
+ * sit at 0.196..0.326 and 0.674..0.804, while the widest mouths — `coding`,
  * `creating`, `learning`, round caps included — run 0.217..0.783. The mouth
- * overlaps both eyes horizontally. Any cut that takes an eye takes those
- * mouths with it, on either side, at any scale, because these are fractions.
+ * overlaps both eyes horizontally, so any cut that takes an eye takes those
+ * mouths with it, at any scale, because these are fractions.
  *
- * Uncropped it fared no better. At 186px the strokes are 24px thick, the eyes
- * stand 89px apart and the mouth hangs 80px below them, and at 14% opacity the
- * eye cannot group three marks that far apart: it read as two vertical bars
- * and a detached blob, which is what it was.
- *
- * The card also carries this face twice already — 24px beside the mood label,
- * 17px in the lockup — both at full ink, both legible. A third copy, huge and
- * faint and clipped, was never adding a mood cue the card lacked.
- *
- * So themes now carry `texture: 'scanline' | 'none'`. Grain and vignette are
- * unconditional and still do the work layer 6 was sharing.
+ * Small and entire solves both. At 70px the strokes are 5px and the features
+ * sit close enough to group into a face at a glance, where at 186px they were
+ * 24px bars 89px apart that grouped into nothing. It takes the card's ink via
+ * `currentColor` and sits low, in the band the centred stack leaves between the
+ * statement and the lockup — an area with room precisely because the stack now
+ * centres on the card rather than on that gap.
  */
+const WATERMARK_SIZE = 106;
+const WATERMARK_OPACITY = 0.13;
+
+/**
+ * Why 106 and not the 186 the spec used to name.
+ *
+ * The mark is sized so the *drawn face* clears the statement above it and the
+ * lockup below it, and that band is the whole budget. Measured across the three
+ * glyph themes and the §7.6 ladder, the statement bottoms out at 386.3
+ * (`classic`, a four-line statement) and the lockup starts at 476: 89.7px, and
+ * that is all there is.
+ *
+ * A whole mark at Logo size 186 draws a face 107x121; at 186px of *face* it is
+ * 186x210. Neither fits in 89.7, so "186, whole, inside the path, clear of the
+ * statement" is not a tuning problem — the four cannot hold at once. 106 is the
+ * largest size that leaves ~10px of air top and bottom in the worst case, and
+ * it still draws a face half again the size of the 70px version.
+ *
+ * To go materially bigger, something else has to give: let the mark run behind
+ * the lockup (the band to the bottom edge is 136px, which does fit ~185) and
+ * accept the wordmark sitting across its mouth, or move the centre stack back
+ * up and give up the §7.5 centring.
+ */
+
+/**
+ * Anchored by the face's own bottom against the lockup, not by the element box.
+ * The 40-unit viewBox is mostly margin, so an element-box offset would leave the
+ * visible gap wrong by ~14px. The lockup is fixed and the statement is not, so
+ * this is the end that can be guaranteed; the statement clearance is then
+ * verified against the worst case above.
+ */
+const WATERMARK_GAP = 10;
+const WATERMARK_FACE_BOTTOM = (MARK_INK_BOTTOM / MARK_VIEWBOX) * WATERMARK_SIZE;
+const WATERMARK_TOP = LOCKUP_TOP - WATERMARK_GAP - WATERMARK_FACE_BOTTOM;
 
 /** §7.5 — ink alphas for the three quiet tiers. */
 const INK_TIMESTAMP = 0.7;
@@ -185,6 +211,31 @@ function formatTime(at) {
   const d = at instanceof Date ? at : new Date(at ?? Date.now());
   if (Number.isNaN(d.valueOf())) return "";
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+/**
+ * Moment 1 of the motion budget: a mood change cross-fades the colour and the
+ * glyph over 240ms. The colour is a transition on the card; the glyph has to
+ * be two layers, because it is swapped rather than tweened.
+ */
+function useOutgoingMood(moodId, enabled) {
+  const [outgoing, setOutgoing] = useState(null);
+  const current = useRef(moodId);
+
+  useEffect(() => {
+    if (!enabled) {
+      current.current = moodId;
+      return undefined;
+    }
+    if (current.current === moodId) return undefined;
+    const previous = current.current;
+    current.current = moodId;
+    setOutgoing(previous);
+    const t = window.setTimeout(() => setOutgoing(null), 240);
+    return () => window.clearTimeout(t);
+  }, [moodId, enabled]);
+
+  return outgoing;
 }
 
 /* ------------------------------------------------------------------ layers */
@@ -247,6 +298,36 @@ function Grain() {
     />
   );
 }
+
+/**
+ * Layer 6 — the mood's face, whole, low, and faint.
+ *
+ * Centred rather than pushed into a corner. A corner is where you put a mark
+ * you are apologising for; this one is meant to be seen, just second. It sits
+ * on the same axis as the lockup below it, so the two read as one column of
+ * brand rather than as a stray glyph beside a footer.
+ */
+function Watermark({ moodId, leaving = false }) {
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        position: "absolute",
+        top: WATERMARK_TOP,
+        left: 0,
+        right: 0,
+        display: "flex",
+        justifyContent: "center",
+        pointerEvents: "none",
+        opacity: leaving ? 0 : WATERMARK_OPACITY,
+        animation: leaving ? "moodscreen-glyph-out 240ms var(--ease) forwards" : undefined,
+      }}
+    >
+      <Logo mood={moodId} size={WATERMARK_SIZE} />
+    </div>
+  );
+}
+
 
 /* ----------------------------------------------------------------- content */
 
@@ -381,6 +462,7 @@ export default function Moodscreen({
 }) {
   const theme = themeInput ?? getTheme(themeId);
   const mood = getMood(moodId) ?? FALLBACK_MOOD;
+  const outgoingMoodId = useOutgoingMood(moodId, !forExport && theme.texture === "glyph");
 
   const resolved = resolveSurface({ mood, surface, at, forExport });
   const { background, ink } = resolved;
@@ -420,6 +502,16 @@ export default function Moodscreen({
         ) : null}
         <Grain />
 
+        {/* Layer 6, and in §7.3's order this time: above the grain, below the
+          * content. The previous version sat under the vignette, which meant
+          * the corner shading fell across the very thing it was darkening. */}
+        {theme.texture === "glyph" ? (
+          <>
+            {outgoingMoodId ? <Watermark moodId={outgoingMoodId} leaving /> : null}
+            <Watermark moodId={moodId} />
+          </>
+        ) : null}
+
         {/* Each group sets its own side inset, measured off the drawn path at
           * the heights it occupies, because a single square inset cannot clear
           * the corners and leave the statement its width. */}
@@ -457,7 +549,6 @@ export default function Moodscreen({
             boxSizing: "border-box",
             paddingLeft: PAD_MIDDLE,
             paddingRight: PAD_MIDDLE,
-            paddingBottom: OPTICAL_LIFT * 2,
             display: "flex",
             flexDirection: "column",
             alignItems: "center",

@@ -20,5 +20,5 @@ export const clean = {
     scale: [48, 38, 30, 24],
   },
 
-  texture: "none",
+  texture: "glyph",
 };
