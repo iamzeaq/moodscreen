@@ -836,10 +836,13 @@ new session or `npm install` fails with `spawn EPERM`.
 When the nvm shim itself breaks — `npm run build` dying in
 `node:internal/modules/cjs/loader` with `Invalid or unexpected token`, which is
 node being handed its own binary as a script — skip npm and call the tool
-directly:
+directly. **Absolute paths for both arguments**, or the same failure comes back
+from the other end: a relative script path resolves against the shim's idea of
+the working directory rather than yours, and what node then reads is `node.exe`.
 
 ```powershell
-& "$env:LOCALAPPDATA\nvm\v24.16.0\node.exe" node_modules\vite\bin\vite.js build
+& "$env:LOCALAPPDATA\nvm\v24.16.0\node.exe" C:\dev\moodscreen\node_modules\vite\bin\vite.js build
+& "$env:LOCALAPPDATA\nvm\v24.16.0\node.exe" C:\dev\moodscreen\node_modules\vite\bin\vite.js --port 5177 --strictPort
 ```
 
 ---

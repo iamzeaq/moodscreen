@@ -422,7 +422,11 @@ function Lockup({ moodId, username, ink }) {
       <span style={{ marginLeft: 6 }}>
         <span style={{ fontWeight: 700 }}>moodscreen</span>
         <span style={{ fontWeight: 500, opacity: 0.6, letterSpacing: "-0.01em" }}>
-          .live/{handle}
+          {/* A guest has no handle yet, and `.live/` with nothing after it
+            * reads as a broken string rather than as a domain. §1 is
+            * guest-first and guests export from the hero, so this is the
+            * common case, not an edge one: no handle, no slash. */}
+          {handle ? `.live/${handle}` : ".live"}
         </span>
       </span>
     </div>

@@ -105,6 +105,25 @@ function normalizeShareUrl(link) {
   return `https://${t}`;
 }
 
+/**
+ * Whether this browser can put a PNG into a share sheet at all.
+ *
+ * Desktop is the case that matters. Windows Chrome often has no
+ * `navigator.share`, and where it does it frequently refuses `files` — so the
+ * share path used to end at "Share failed: Web Share is not available", which
+ * is a dead end dressed as an error. Checked up front so the caller can take
+ * the download instead, which on a desktop is what sharing means anyway.
+ */
+function canShareFiles(file) {
+  if (typeof navigator === "undefined" || typeof navigator.share !== "function") return false;
+  if (typeof navigator.canShare !== "function") return true;
+  try {
+    return navigator.canShare({ files: [file] });
+  } catch {
+    return false;
+  }
+}
+
 /** Web Share must run in the same synchronous turn as a tap. */
 function invokeNavigatorShare({ file, text, url }) {
   if (typeof navigator === "undefined" || typeof navigator.share !== "function") {
@@ -547,6 +566,12 @@ export function MoodscreenProvider({ children }) {
    * One tap. If the pre-rendered file is current — which it is within half a
    * second of the last edit — navigator.share runs synchronously off the tap
    * and the sheet opens immediately.
+   *
+   * Where there is no share sheet to open, this saves the file instead of
+   * reporting that there is no share sheet. §1 makes getting the image out the
+   * product; a desktop browser without Web Share is not an error condition,
+   * it is a desktop browser, and "Share failed: Web Share is not available" is
+   * a dead end with an apology attached.
    */
   const sharePng = useCallback(() => {
     setDownloadError(null);
@@ -555,6 +580,10 @@ export function MoodscreenProvider({ children }) {
 
     const prep = currentPrepared();
     if (prep) {
+      if (!canShareFiles(prep.file)) {
+        void downloadPng();
+        return;
+      }
       void invokeNavigatorShare({ file: prep.file, text, url: pageUrl }).catch((e) => {
         if (e && e.name === "AbortError") return;
         console.warn("moodscreen share:", e);
@@ -575,6 +604,11 @@ export function MoodscreenProvider({ children }) {
         const file = new File([blob], filename, { type: "image/png" });
         preparedRef.current = { key: exportKeyRef.current, blob, file, filename };
         setShareReady(true);
+        if (!canShareFiles(file)) {
+          if (isLikelyIOS()) openImageInNewTab(blob);
+          else triggerBrowserDownload(blob, filename);
+          return;
+        }
         await invokeNavigatorShare({ file, text, url: pageUrl });
       } catch (e) {
         if (e && e.name === "AbortError") return;
@@ -582,14 +616,14 @@ export function MoodscreenProvider({ children }) {
         const msg = e && typeof e.message === "string" ? e.message : String(e);
         setDownloadError(
           msg.includes("gesture") || msg.includes("user activation")
-            ? "Almost ready — tap Share once more."
-            : `Share failed: ${msg.length < 160 ? msg : "Unknown error"}`,
+            ? "Almost ready — tap it once more."
+            : `Could not export: ${msg.length < 160 ? msg : "Unknown error"}`,
         );
       } finally {
         setIsExporting(false);
       }
     })();
-  }, [isExporting, currentPrepared, captureNow]);
+  }, [isExporting, currentPrepared, captureNow, downloadPng]);
 
   const copyLink = useCallback(async () => {
     setCopied(false);

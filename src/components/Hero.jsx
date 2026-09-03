@@ -28,6 +28,7 @@ import StatementField from "./editor/StatementField.jsx";
 import SurfaceControl from "./editor/SurfaceControl.jsx";
 import { FaceField } from "./brand/FaceField.jsx";
 import ClaimField from "./ClaimField.jsx";
+import Button from "./ui/Button.jsx";
 import { useMoodscreen } from "../context/MoodscreenContext.jsx";
 
 /**
@@ -41,7 +42,19 @@ import { useMoodscreen } from "../context/MoodscreenContext.jsx";
 const PLACEHOLDER_STATEMENT = "shipping the thing I promised";
 
 export default function Hero() {
-  const { formValue, handleFormChange, moodscreenProps, storageHydrated } = useMoodscreen();
+  const {
+    formValue,
+    handleFormChange,
+    moodscreenProps,
+    storageHydrated,
+    sharePng,
+    isExporting,
+    shareReady,
+    downloadError,
+  } = useMoodscreen();
+
+  /** Has the visitor written anything, or is the card still the example? */
+  const written = Boolean(moodscreenProps.statement.trim());
 
   const preview = useMemo(
     () => ({
@@ -114,6 +127,39 @@ export default function Hero() {
               at={moodscreenProps.at}
               onChange={(surface) => handleFormChange({ surface })}
             />
+
+            {/* §1 is guest-first: "anyone can make and share a Moodscreen with
+              * no account". The hero is where it gets made, so it has to be
+              * where it can be taken away — sending someone to /create to get
+              * their own image out puts a route in front of the one thing the
+              * product is for.
+              *
+              * Secondary, not primary. §10 allows one primary action per view
+              * and that is the claim below; this is the other thing you might
+              * do with what you just made, not a rival to it. On a browser
+              * with no share sheet it saves the PNG instead — see sharePng. */}
+            {/* Disabled until there is a statement, because until then the
+              * card on screen is showing PLACEHOLDER_STATEMENT and the export
+              * node is showing nothing. Exporting there would hand someone a
+              * different image from the one in front of them, which is the
+              * drift §7 exists to prevent — the placeholder is an example, and
+              * an example is not yours to post. */}
+            <Button
+              variant="secondary"
+              onClick={sharePng}
+              disabled={!written}
+              loading={isExporting && !shareReady}
+              title={written ? undefined : "Say what you're on first"}
+              className="mt-2"
+            >
+              Drop your Moodscreen
+            </Button>
+
+            {downloadError ? (
+              <p className="max-w-[36ch] text-center text-12 text-danger" role="alert">
+                {downloadError}
+              </p>
+            ) : null}
           </div>
         </div>
 
