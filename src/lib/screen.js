@@ -95,21 +95,33 @@ export const SCREEN_PATH_UNIT = SCREEN_PATH.replace(/-?\d*\.?\d+/g, (n) =>
 );
 
 /**
- * Where the drawn shape's bottom-right corner actually is, as a fraction of
- * the box.
+ * The midpoint of a cubic, which by the path's symmetry is where an edge or a
+ * corner reaches furthest from the box.
  *
- * Nowhere near the box's own corner: the curve pulls in to about 90% on both
- * axes, so a layer aimed at (100%, 100%) is aimed at a point outside the
- * screen and gets clipped away entirely. That is not a rounding error, it is
- * roughly a tenth of the card on each axis — enough to lose a whole feature of
- * anything positioned against it.
- *
- * The midpoint of the corner's cubic, which by the path's symmetry is the same
- * value on both axes.
+ * Worth having because the drawn shape is nowhere near its own bounding box:
+ * the corners pull in to about 90% on both axes, so a layer aimed at
+ * (100%, 100%) is aimed at a point outside the screen and gets clipped away
+ * entirely. That is not a rounding error — it is roughly a tenth of the card on
+ * each axis, enough to lose a whole feature of anything positioned against it.
  */
 const cubicMid = (a, b, c, d) => 0.125 * a + 0.375 * b + 0.375 * c + 0.125 * d;
 
-export const SCREEN_CORNER = cubicMid(380, 373, 357, 325) / SCREEN_VIEWBOX;
+/**
+ * Where the drawn top edge sits at the card's centre line, as a fraction of
+ * the box.
+ *
+ * Not the 20-unit inset: the top edge bows *upward*, so at the middle — which
+ * is where the centre stack is — the shape starts about seven units higher
+ * than at the corners. Content is centred against this rather than against the
+ * safe inset because the space the eye judges runs to the edge it can see, not
+ * to the invisible line the first row happens to sit on.
+ */
+export const SCREEN_TOP = cubicMid(EDGE, NEAR, NEAR, EDGE) / SCREEN_VIEWBOX;
+
+/** The drawn top edge in px for a card drawn at `size`. */
+export function screenTop(size) {
+  return SCREEN_TOP * size;
+}
 
 /**
  * The path scaled to a px box, for CSS `clip-path: path(...)`.

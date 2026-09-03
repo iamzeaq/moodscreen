@@ -12,7 +12,7 @@
  *   name     string        shown in the theme picker
  *   tier     'free' | 'pro'
  *   font     { family, faceFamily, weight, case, tracking, lineHeight, scale }
- *   texture  'scanline' | 'glyph'
+ *   texture  'scanline' | 'none'
  *
  * Every font field is necessary because typefaces are not interchangeable:
  *

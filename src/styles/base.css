@@ -65,20 +65,6 @@ body {
 }
 
 /**
- * The outgoing half of the mood cross-fade (motion budget, moment 1). The
- * incoming glyph is simply there; this fades the one it replaced. A keyframe
- * rather than a transition because the element is mounted mid-fade.
- */
-@keyframes moodscreen-glyph-out {
-  from {
-    opacity: 0.16;
-  }
-  to {
-    opacity: 0;
-  }
-}
-
-/**
  * The live dot (motion budget, moment 2). `scale 1 -> 1.15`, 2.4s, infinite.
  *
  * Transform only, so it stays off the paint path — this runs forever on every

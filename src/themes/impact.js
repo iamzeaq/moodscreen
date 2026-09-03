@@ -20,5 +20,5 @@ export const impact = {
     scale: [64, 51, 38, 30],
   },
 
-  texture: "glyph",
+  texture: "none",
 };

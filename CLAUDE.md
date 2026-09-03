@@ -225,7 +225,10 @@ mid-range Android, which is a large share of the audience.
 **No scroll-triggered stagger reveals on sections.** That is the clearest
 generated-page signature. The motion budget is spent on four moments only:
 
-1. Mood change cross-fades the Moodscreen's colour and glyph — 240ms.
+1. Mood change cross-fades the Moodscreen's colour — 240ms. Colour only: the
+   glyph that used to cross-fade with it was the §7.3 watermark, which is gone.
+   The mark beside the label and the one in the lockup are small and at full
+   ink, and swap.
 2. The live status dot breathes, `scale 1 → 1.15`, 2.4s, infinite.
 3. Pulse counters roll their digits vertically when values change — 180ms.
 4. The hero Moodscreen scales down and joins the wall on scroll —
@@ -315,12 +318,35 @@ nothing and the Pro free-hue wheel works with no extra data.
 3  vignette            radial, ink at 10-14%, starting at 60% radius
 4  scanlines           horizontal, 6px pitch, 2.2px line
 5  grain               tiled PNG, 6-9%
-6  glyph watermark     mood face, cropped by the edge, 14-18%
-7  content             §7.5
+6  content             §7.5
 ```
 
-Scanline opacity is per surface: `colour` 13%, `ink` 12%, `paper` 7%. Dark
-texture on a light field reads much stronger, so paper needs it dialled back.
+**There is no glyph watermark layer.** There was one — the mood's face blown up
+behind the content and cropped by the screen edge — and it cannot be built,
+because the two halves of that brief contradict each other in the mark's own
+proportions. Taking the face's ink box as 0..1, the eyes occupy 0.196-0.326 and
+0.674-0.804 while the widest mouths (`coding`, `creating`, `learning`, round
+caps included) run 0.217-0.783. The mouth overlaps both eyes horizontally, so
+any cut that removes an eye also cuts those mouths, from either side, at any
+size — these are fractions, and scaling does not move them.
+
+Uncropped it failed differently. At 186px the strokes are 24px thick, the eyes
+stand 89px apart and the mouth hangs 80px below them; at 14% nothing groups
+three marks that far apart, and it rendered as two vertical bars and a detached
+blob. The card also already carries this face twice — 24px beside the mood
+label, 17px in the lockup, both at full ink — so the third copy was never
+carrying a cue the card lacked. Do not reintroduce it.
+
+Scanline opacity is per surface: `colour` 13%, `ink` 5.5%, `paper` 4%. Dark
+texture on a light field reads much stronger, so paper needs it dialled back —
+and further than the 7% first written here, because at that strength the bone
+surface reads as woven cloth rather than as a CRT. The same principle with the
+sign flipped governs `ink`, where the line is a *lightened* tone on a near-black
+field and so nearly full contrast. Both are the same failure as dark-on-paper
+and want the same answer. Nothing here is per theme: `nokia` looks the heaviest
+only because Silkscreen's own pixel rows land near 4.75px against the 6px pitch
+and the two grids beat into a weave. The pitch stays; the contrast gives way.
+
 Same principle applies to the vignette.
 
 The vignette must stay invisible as an effect — if you can point at it, it's
@@ -366,6 +392,13 @@ costs the statement four points of size and makes the layout generic. In a
 story the poster's real face is already above the card in the platform's own
 chrome, so this is a mark, not a portrait.
 
+Its fill and edge are **per surface**, and one pair of alphas will not serve all
+three. On `colour` and `paper` the ink is a dark tone on a lighter field and a
+14%/22% wash reads as an object. On `ink` the relationship inverts — a lightened
+mood tone on a near-black field — and the same alphas land about nineteen levels
+above the background, which the vignette then eats into at exactly the radius the
+avatar sits at, leaving the disc all but invisible. `ink` takes 26%/44% instead.
+
 The mood label sits **directly above the statement**, never in a corner.
 Label and statement are one utterance and must read as a pair.
 
@@ -379,16 +412,28 @@ corner-aligned — corner reads as a watermark someone forgot to remove.
 
 **The mood glyph is the three-stroke face from §8**, not the icons in
 `src/components/icons/`. Those are primitive single-path geometry — `thinking`
-is a bare circle, `offline` a single straight line — and they do not survive
-being blown up to 300px at 16% opacity. The face does, and it means something
-at every size.
+is a bare circle, `offline` a single straight line — and they carry no mood at
+small sizes. The face does, and it means something at every size.
 
-One component, three sizes: 17px in the lockup, 24px beside the mood label,
-186px as the watermark. 300px was the first figure and is over half the card's
-width — at that scale the face stops being layer 6 and starts competing with
-the statement it sits behind. Eyes stay fixed; only the mouth path changes per mood,
-so adding a mood is one path rather than a new drawing. The existing icon set
-stays in the repo for other uses.
+One component, two sizes: 17px in the lockup and 24px beside the mood label.
+Eyes stay fixed; only the mouth path changes per mood, so adding a mood is one
+path rather than a new drawing. The existing icon set stays in the repo for
+other uses.
+
+### Vertical placement
+
+The three groups are **positioned, not stacked**. The timestamp is a corner
+mark and the lockup is a footer, so neither belongs in a column with the centre
+stack: as a flex row the 12px timestamp takes full-width layout at the top and
+drags the whole reference frame down with it, and the stack then centres in the
+space below the timestamp while the eye centres it in the space below the card's
+edge. The two disagree by about 29px, which reads as a void above the avatar.
+
+So the centre stack owns the field from the **drawn top edge** — the bow carries
+it above the safe inset, so measure it off the path — down to the top of the
+lockup, and is optically centred in it. Optically, not geometrically: the frame's
+top boundary is an empty edge and its bottom boundary is the lockup's ink, and
+mass at the bottom pulls the perceived centre down, so lift the stack ~6px off it.
 
 ### 7.6 The statement
 
@@ -428,7 +473,7 @@ themes still look like one product.
     lineHeight: 1.35,
     scale: [30, 24, 18, 14],
   },
-  texture: 'scanline' | 'glyph',
+  texture: 'scanline' | 'none',
 }
 ```
 

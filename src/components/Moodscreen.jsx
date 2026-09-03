@@ -18,10 +18,9 @@
  * arrangement (the user owns it, via `surface`), or the hour (the timestamp
  * owns it). All three arrive as data and meet in resolveSurface.
  */
-import { useEffect, useRef, useState } from "react";
-import Logo, { MARK_INK_HEIGHT, MARK_INK_WIDTH } from "./brand/Logo.jsx";
+import Logo from "./brand/Logo.jsx";
 import { getMood, MOODS } from "../lib/moods.js";
-import { safeInset, safeSideInset, SCREEN_CORNER, screenPathAt } from "../lib/screen.js";
+import { safeInset, safeSideInset, screenPathAt, screenTop } from "../lib/screen.js";
 import { statementSize } from "../lib/statementFit.js";
 import { applyCase, getTheme } from "../themes/index.js";
 import { DEFAULT_SURFACE, resolveSurface } from "../themes/surface.js";
@@ -53,78 +52,90 @@ const PAD_TOP = safeSideInset(...BAND_TOP, BASE_SIZE);
 const PAD_MIDDLE = safeSideInset(...BAND_MIDDLE, BASE_SIZE);
 const PAD_BOTTOM = safeSideInset(...BAND_BOTTOM, BASE_SIZE);
 
+/**
+ * The frame the centre stack is centred in: the drawn top edge down to the top
+ * of the lockup.
+ *
+ * The three groups used to be a flex column, which sounds right and is not.
+ * A column makes the timestamp a *row*: 12px of full-width layout at the top
+ * of the card, which pushes the stack below it down by half that and, more to
+ * the point, moves the whole reference frame down with it. The stack then
+ * centres in the space below the timestamp while the eye centres it in the
+ * space below the card's edge, and the two disagree by the 29px that read as
+ * a void above the avatar.
+ *
+ * The timestamp is a corner mark — §7.5 gives it the top-right and nothing
+ * else — so it is positioned, not stacked, and reserves no height. The stack
+ * then owns the whole field from the edge to the lockup, which is the space
+ * the eye was measuring all along.
+ */
+const LOCKUP_TOP = BASE_SIZE - SAFE_V - LOCKUP_H;
+const STACK_TOP = screenTop(BASE_SIZE);
+const STACK_HEIGHT = LOCKUP_TOP - STACK_TOP;
+
+/**
+ * The optical half of "optically centred".
+ *
+ * Geometric centring in that frame leaves the stack looking a shade low,
+ * because the frame is not symmetric in weight: its top boundary is an empty
+ * drawn edge and its bottom boundary is the lockup, which is ink. Mass at the
+ * bottom pulls the perceived centre down, so the stack is lifted back off it.
+ * Applied as bottom padding on a centred flex box, which shifts the content up
+ * by half — hence the doubling at the point of use.
+ */
+const OPTICAL_LIFT = 6;
+
 /** Baked once: the clip every layer inside the screen is cut to. */
 const CLIP = `path("${screenPathAt(BASE_SIZE)}")`;
 
 /**
- * §7.3 — texture strength per surface. Dark texture on a light field reads
- * much stronger, so `paper` needs both of these dialled back hard.
+ * §7.3 — texture strength per surface.
+ *
+ * §7.3 gives the principle as: a light field needs it dialled back. It states
+ * that for `paper`, and the same principle with the sign flipped governs `ink`,
+ * which the spec's own numbers missed — there the line is drawn in the
+ * surface's ink, a *lightened* tone of the mood, on a near-black field, so it
+ * is a light stroke on a dark ground at close to full contrast, and 12% reads
+ * as distinct stripes rather than as texture.
+ *
+ * `paper` in turn is lower than the 7% first written, for the same reason
+ * carried further: on bone, a 2.2px line every 6px stops reading as a CRT
+ * artefact and starts reading as woven cloth. That is worst under `nokia`,
+ * though nothing about it is nokia's — the layer is per *surface* and every
+ * scanline theme draws it identically. What nokia adds is a beat: Silkscreen's
+ * own pixel rows land near 4.75px against the 6px pitch, and the two grids
+ * interfere into a visible weave. Dropping the contrast is what breaks the
+ * beat, since the pitch is §7.3's and stays.
  */
-/**
- * §7.3 — texture strength per surface. §7.3 gives the principle as light field
- * needs it dialled back, and states it for `paper`; the same principle applies
- * with the sign flipped on `ink`, which the spec's numbers missed. There the
- * line is drawn in the surface's own ink — a *lightened* tone of the mood — on
- * a near-black field, so it is a light stroke on a dark ground at close to full
- * contrast, and 12% reads as distinct stripes rather than as texture. It is the
- * same failure as dark-on-paper, and it wants the same answer.
- */
-const SCANLINE_OPACITY = { colour: 0.13, ink: 0.055, paper: 0.07 };
+const SCANLINE_OPACITY = { colour: 0.13, ink: 0.055, paper: 0.04 };
 const VIGNETTE_OPACITY = { colour: 0.14, ink: 0.1, paper: 0.07 };
 
 const GRAIN_OPACITY = 0.07;
-const WATERMARK_OPACITY = 0.14;
 
 /**
- * The watermark — §7.3 layer 6, the mood's own face bleeding off the
- * bottom-right corner. §7.5 sizes it at 300px.
+ * There is no glyph watermark layer, and §7.3's layer 6 is gone with it.
  *
- * The previous attempt cut the face at 55% of its width, which sounds like a
- * crop and is in fact a decapitation: the right eye went over the edge
- * entirely, and what stayed on the card was one vertical bar and half a
- * horizontal one — two blobs, not a face. §7.3 asks for the face *cropped by
- * the edge*, and the test of that is whether it still reads as a face, so both
- * eyes and the mouth stay on the card and the crop takes the margin around
- * them.
+ * It asked for the mood's face blown up and *cropped by the screen edge*, on
+ * the test that what remains still reads as a face. Those two cannot both
+ * hold, and the reason is in the mark's own proportions rather than in any
+ * choice of size or position. Taking the face's ink box as 0..1: the eyes sit
+ * at 0.196..0.326 and 0.674..0.804, while the widest mouths — `coding`,
+ * `creating`, `learning`, round caps included — run 0.217..0.783. The mouth
+ * overlaps both eyes horizontally. Any cut that takes an eye takes those
+ * mouths with it, on either side, at any scale, because these are fractions.
  *
- * The face is addressed in fractions of itself, via `tight`, where the element
- * is the drawn face rather than the 40-unit viewBox that is mostly empty
- * margin. An offset against that box would be wildly unfaithful to where the
- * features actually are, which is how the first version went wrong.
- */
-/**
- * §7.5 names 300px, which is 55% of the card's width, and at that size the
- * face stops being a texture and becomes the subject — on a saturated field it
- * fills most of the lower half and competes with the statement it is supposed
- * to sit behind. Layer 6 is a watermark: it should be something you notice
- * second. A third of the card's width leaves it clearly a face, clearly
- * cropped, and clearly behind everything else.
- */
-const WATERMARK_SIZE = 186;
-
-/**
- * Where the screen's drawn corner falls across the face, as a fraction of it.
+ * Uncropped it fared no better. At 186px the strokes are 24px thick, the eyes
+ * stand 89px apart and the mouth hangs 80px below them, and at 14% opacity the
+ * eye cannot group three marks that far apart: it read as two vertical bars
+ * and a detached blob, which is what it was.
  *
- * Far enough out that the face is unmistakably running off the corner rather
- * than sitting inside it, near enough in that both eyes clear the edge with
- * room. What the crop actually takes is the bottom of the mouth on the moods
- * whose mouth dips lowest — `speaking`'s circle, `building`'s and `hiring`'s
- * curves — which is the part of a face you can lose and still read.
+ * The card also carries this face twice already — 24px beside the mood label,
+ * 17px in the lockup — both at full ink, both legible. A third copy, huge and
+ * faint and clipped, was never adding a mood cue the card lacked.
+ *
+ * So themes now carry `texture: 'scanline' | 'none'`. Grain and vignette are
+ * unconditional and still do the work layer 6 was sharing.
  */
-const WATERMARK_CORNER_X = 0.78;
-const WATERMARK_CORNER_Y = 0.82;
-
-const WATERMARK_WIDTH = WATERMARK_SIZE;
-const WATERMARK_HEIGHT = (WATERMARK_SIZE * MARK_INK_HEIGHT) / MARK_INK_WIDTH;
-
-/**
- * The corner it is placed against is the screen's *drawn* one, not the box's.
- * Aiming at the box corner puts it about a tenth of the card outside the
- * shape, where the clip throws it away.
- */
-const CORNER = BASE_SIZE * SCREEN_CORNER;
-const WATERMARK_LEFT = CORNER - WATERMARK_CORNER_X * WATERMARK_WIDTH;
-const WATERMARK_TOP = CORNER - WATERMARK_CORNER_Y * WATERMARK_HEIGHT;
 
 /** §7.5 — ink alphas for the three quiet tiers. */
 const INK_TIMESTAMP = 0.7;
@@ -145,6 +156,22 @@ const META_ALPHA = { colour: 1.25, ink: 1, paper: 1 };
 
 const alphaFor = (base, surface) => Math.min(base * META_ALPHA[surface], 1);
 
+/**
+ * The avatar's own fill and edge, per surface.
+ *
+ * One pair of alphas cannot serve all three. On `colour` and `paper` the ink is
+ * a dark tone on a lighter field, and a 14% wash of it darkens the disc plainly
+ * enough to read as an object. On `ink` the relationship inverts — a lightened
+ * mood tone on a near-black field — and the same 14% lands about nineteen
+ * levels above the background, which the vignette then eats into at exactly the
+ * radius the avatar sits at. The disc is a signature (§7.5) and it has to be
+ * legible as one, so `ink` takes the alpha it needs rather than the alpha the
+ * other two happen to want.
+ */
+const AVATAR_FILL = { colour: 0.14, ink: 0.26, paper: 0.14 };
+const AVATAR_EDGE = { colour: 0.22, ink: 0.44, paper: 0.22 };
+const AVATAR_INITIAL = { colour: 0.75, ink: 0.9, paper: 0.75 };
+
 const FALLBACK_MOOD = MOODS[0];
 
 function withAlpha(hex, a) {
@@ -158,31 +185,6 @@ function formatTime(at) {
   const d = at instanceof Date ? at : new Date(at ?? Date.now());
   if (Number.isNaN(d.valueOf())) return "";
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
-
-/**
- * Moment 1 of the motion budget: a mood change cross-fades the colour and the
- * glyph over 240ms. The colour is a transition on the card; the glyph has to
- * be two layers, because it is swapped rather than tweened.
- */
-function useOutgoingMood(moodId, enabled) {
-  const [outgoing, setOutgoing] = useState(null);
-  const current = useRef(moodId);
-
-  useEffect(() => {
-    if (!enabled) {
-      current.current = moodId;
-      return undefined;
-    }
-    if (current.current === moodId) return undefined;
-    const previous = current.current;
-    current.current = moodId;
-    setOutgoing(previous);
-    const t = window.setTimeout(() => setOutgoing(null), 240);
-    return () => window.clearTimeout(t);
-  }, [moodId, enabled]);
-
-  return outgoing;
 }
 
 /* ------------------------------------------------------------------ layers */
@@ -246,40 +248,6 @@ function Grain() {
   );
 }
 
-/**
- * Layer 6 — the mood's own face, blown up and cropped by the screen edge.
- *
- * Cropping matters: a centred glyph looks like a placeholder. This is the
- * §8 mark rather than anything from src/components/icons/ — those are
- * primitive single-path geometry that does not survive being blown up to
- * 300px at 16%, and the face means something at every size.
- */
-function Watermark({ moodId, leaving = false }) {
-  return (
-    <div
-      aria-hidden="true"
-      style={{
-        position: "absolute",
-        left: WATERMARK_LEFT,
-        top: WATERMARK_TOP,
-        width: WATERMARK_WIDTH,
-        height: WATERMARK_HEIGHT,
-        pointerEvents: "none",
-        opacity: leaving ? 0 : WATERMARK_OPACITY,
-        animation: leaving ? "moodscreen-glyph-out 240ms var(--ease) forwards" : undefined,
-      }}
-    >
-      <Logo
-        mood={moodId}
-        tight
-        width={WATERMARK_WIDTH}
-        height={WATERMARK_HEIGHT}
-        size={WATERMARK_WIDTH}
-      />
-    </div>
-  );
-}
-
 /* ----------------------------------------------------------------- content */
 
 /**
@@ -288,7 +256,7 @@ function Watermark({ moodId, leaving = false }) {
  * In a story the poster's real face is already above the card in the
  * platform's own chrome, so this is a mark, not a portrait.
  */
-function Avatar({ src, name, ink, live }) {
+function Avatar({ src, name, ink, live, surface }) {
   const initial = String(name || "").trim().charAt(0).toUpperCase();
 
   return (
@@ -299,8 +267,8 @@ function Avatar({ src, name, ink, live }) {
           height: 30,
           borderRadius: "50%",
           overflow: "hidden",
-          background: withAlpha(ink, 0.14),
-          border: `1px solid ${withAlpha(ink, 0.22)}`,
+          background: withAlpha(ink, AVATAR_FILL[surface]),
+          border: `1px solid ${withAlpha(ink, AVATAR_EDGE[surface])}`,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -308,7 +276,7 @@ function Avatar({ src, name, ink, live }) {
           fontSize: 13,
           fontWeight: 600,
           lineHeight: 1,
-          color: withAlpha(ink, 0.75),
+          color: withAlpha(ink, AVATAR_INITIAL[surface]),
           boxSizing: "border-box",
         }}
       >
@@ -413,7 +381,6 @@ export default function Moodscreen({
 }) {
   const theme = themeInput ?? getTheme(themeId);
   const mood = getMood(moodId) ?? FALLBACK_MOOD;
-  const outgoingMoodId = useOutgoingMood(moodId, !forExport && theme.texture === "glyph");
 
   const resolved = resolveSurface({ mood, surface, at, forExport });
   const { background, ink } = resolved;
@@ -447,151 +414,149 @@ export default function Moodscreen({
           transitionTimingFunction: "var(--ease)",
         }}
       >
-        {theme.texture === "glyph" ? (
-          <>
-            {outgoingMoodId ? <Watermark moodId={outgoingMoodId} leaving /> : null}
-            <Watermark moodId={moodId} />
-          </>
-        ) : null}
-
         <Vignette ink={ink} surface={resolved.surface} />
         {theme.texture === "scanline" ? (
           <Scanlines ink={ink} surface={resolved.surface} />
         ) : null}
         <Grain />
 
-        {/* The content column is inset vertically only. Each group below sets
-          * its own side inset, measured off the drawn path at the heights it
-          * occupies, because a single square inset cannot clear the corners
-          * and leave the statement its width. */}
+        {/* Each group sets its own side inset, measured off the drawn path at
+          * the heights it occupies, because a single square inset cannot clear
+          * the corners and leave the statement its width. */}
+
+        {/* §7.5 — the timestamp, top-right, and nothing else up there. A mark
+          * in the corner rather than a row: see STACK_TOP on why a row here
+          * drags the centre stack down with it. */}
         <div
           style={{
             position: "absolute",
             top: SAFE_V,
-            bottom: SAFE_V,
-            left: 0,
-            right: 0,
+            right: PAD_TOP,
+            height: TIMESTAMP_H,
             display: "flex",
-            flexDirection: "column",
+            alignItems: "center",
+            fontFamily: "var(--font-mono)",
+            fontSize: 12,
+            letterSpacing: "0.02em",
+            lineHeight: 1,
+            color: withAlpha(ink, alphaFor(INK_TIMESTAMP, resolved.surface)),
           }}
         >
-          {/* §7.5 — the timestamp, and nothing else in the top row. */}
-          <div
-            style={{
-              flex: "none",
-              height: TIMESTAMP_H,
-              paddingLeft: PAD_TOP,
-              paddingRight: PAD_TOP,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "flex-end",
-              fontFamily: "var(--font-mono)",
-              fontSize: 12,
-              letterSpacing: "0.02em",
-              lineHeight: 1,
-              color: withAlpha(ink, alphaFor(INK_TIMESTAMP, resolved.surface)),
-            }}
-          >
-            {formatTime(at)}
-          </div>
+          {formatTime(at)}
+        </div>
 
-          {/* §7.5 — the centre, as one stack. */}
-          <div
-            style={{
-              flex: "1 1 auto",
-              minHeight: 0,
-              paddingLeft: PAD_MIDDLE,
-              paddingRight: PAD_MIDDLE,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              textAlign: "center",
-            }}
-          >
-            <Avatar src={avatarUrl} name={name} ink={ink} live={live && !forExport} />
+        {/* §7.5 — the centre, as one stack, optically centred between the
+          * drawn top edge and the lockup. */}
+        <div
+          style={{
+            position: "absolute",
+            top: STACK_TOP,
+            height: STACK_HEIGHT,
+            left: 0,
+            right: 0,
+            boxSizing: "border-box",
+            paddingLeft: PAD_MIDDLE,
+            paddingRight: PAD_MIDDLE,
+            paddingBottom: OPTICAL_LIFT * 2,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+          }}
+        >
+          <Avatar
+            src={avatarUrl}
+            name={name}
+            ink={ink}
+            surface={resolved.surface}
+            live={live && !forExport}
+          />
 
-            {name ? (
-              <p
-                style={{
-                  margin: "10px 0 0",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 12,
-                  lineHeight: 1.2,
-                  color: withAlpha(ink, alphaFor(INK_NAME, resolved.surface)),
-                  maxWidth: "100%",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {name}
-              </p>
-            ) : null}
-
-            {/* The mood label sits directly above the statement, never in a
-              * corner — label and statement are one utterance and must read
-              * as a pair. */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                margin: "18px 0 0",
-                color: withAlpha(ink, alphaFor(INK_LABEL, resolved.surface)),
-              }}
-            >
-              <Logo mood={moodId} size={24} />
-              <span
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 13,
-                  letterSpacing: "0.25em",
-                  /* The tracking is trailing whitespace on the last letter;
-                   * without this the pair reads as off-centre. */
-                  textIndent: "0.25em",
-                  lineHeight: 1,
-                  textTransform: "lowercase",
-                }}
-              >
-                {mood.label}
-              </span>
-            </div>
-
-            {/* The statement — the largest thing on the card by a wide margin. */}
+          {name ? (
             <p
               style={{
-                margin: "12px 0 0",
-                fontFamily: theme.font.family,
-                fontWeight: theme.font.weight,
-                fontSize: size,
-                letterSpacing: theme.font.tracking,
-                lineHeight: theme.font.lineHeight,
-                overflowWrap: "break-word",
-                wordBreak: "break-word",
-                width: "100%",
+                margin: "10px 0 0",
+                fontFamily: "var(--font-mono)",
+                fontSize: 12,
+                lineHeight: 1.2,
+                color: withAlpha(ink, alphaFor(INK_NAME, resolved.surface)),
+                maxWidth: "100%",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
               }}
             >
-              {applyCase(statement, theme)}
+              {name}
             </p>
-          </div>
+          ) : null}
 
+          {/* The mood label sits directly above the statement, never in a
+            * corner — label and statement are one utterance and must read
+            * as a pair. */}
           <div
             style={{
-              flex: "none",
-              height: LOCKUP_H,
-              paddingLeft: PAD_BOTTOM,
-              paddingRight: PAD_BOTTOM,
               display: "flex",
               alignItems: "center",
-              /* §7.5 — the lockup is centred; a corner reads as a watermark
-               * someone forgot to remove. */
               justifyContent: "center",
+              gap: 8,
+              margin: "18px 0 0",
+              color: withAlpha(ink, alphaFor(INK_LABEL, resolved.surface)),
             }}
           >
-            <Lockup moodId={moodId} username={username} ink={ink} />
+            <Logo mood={moodId} size={24} />
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 13,
+                letterSpacing: "0.25em",
+                /* The tracking is trailing whitespace on the last letter;
+                 * without this the pair reads as off-centre. */
+                textIndent: "0.25em",
+                lineHeight: 1,
+                textTransform: "lowercase",
+              }}
+            >
+              {mood.label}
+            </span>
           </div>
+
+          {/* The statement — the largest thing on the card by a wide margin. */}
+          <p
+            style={{
+              margin: "12px 0 0",
+              fontFamily: theme.font.family,
+              fontWeight: theme.font.weight,
+              fontSize: size,
+              letterSpacing: theme.font.tracking,
+              lineHeight: theme.font.lineHeight,
+              overflowWrap: "break-word",
+              wordBreak: "break-word",
+              width: "100%",
+            }}
+          >
+            {applyCase(statement, theme)}
+          </p>
+        </div>
+
+        <div
+          style={{
+            position: "absolute",
+            top: LOCKUP_TOP,
+            height: LOCKUP_H,
+            left: 0,
+            right: 0,
+            boxSizing: "border-box",
+            paddingLeft: PAD_BOTTOM,
+            paddingRight: PAD_BOTTOM,
+            display: "flex",
+            alignItems: "center",
+            /* §7.5 — the lockup is centred; a corner reads as a watermark
+             * someone forgot to remove. */
+            justifyContent: "center",
+          }}
+        >
+          <Lockup moodId={moodId} username={username} ink={ink} />
         </div>
       </div>
     </div>

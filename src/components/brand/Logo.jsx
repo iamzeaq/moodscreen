@@ -82,24 +82,6 @@ export const MARK_INK_TOP = 5.5;
 export const MARK_INK_BOTTOM = 31.5;
 export const MARK_INK_HEIGHT = MARK_INK_BOTTOM - MARK_INK_TOP;
 
-/**
- * The horizontal bounds too, so the face can be addressed as a face.
- *
- * The 40-unit viewBox is mostly empty margin — the drawn face sits inside
- * about half of it — which makes any offset computed against the box wildly
- * unfaithful to where the features actually are. Anything that needs to
- * position the face against something else (the watermark cropping itself on
- * the screen edge) works in these bounds via `tight`, where 0..1 of the box is
- * 0..1 of the face and a crop at 55% really does land between the eyes.
- *
- * These are the union across every mood, not the current one, so the framing
- * does not jump when the mood cross-fades. `coding` is the widest, being the
- * only mood that lays its eyes down.
- */
-export const MARK_INK_LEFT = 8.5;
-export const MARK_INK_RIGHT = 31.5;
-export const MARK_INK_WIDTH = MARK_INK_RIGHT - MARK_INK_LEFT;
-
 /** Stroke 3 at 40x40; bump to 3.6 below 24px or it thins out. */
 function strokeFor(size) {
   return size < 24 ? 3.6 : 3;
@@ -108,14 +90,6 @@ function strokeFor(size) {
 export default function Logo({
   mood = DEFAULT_MOOD,
   size = 40,
-  /**
-   * Crop the viewBox to the face's own bounds instead of the 40-unit box, so
-   * the element *is* the face. Callers that need to position features rather
-   * than an element want this; everything else wants the padded box, which is
-   * what keeps the mark optically centred beside text.
-   */
-  tight = false,
-  /** Explicit box, for `tight`, where the face is not square. */
   width,
   height,
   strokeWidth,
@@ -128,13 +102,9 @@ export default function Logo({
   const eyes = face.eyes ?? EYES_VERTICAL;
   const stroke = strokeWidth ?? strokeFor(size);
 
-  const viewBox = tight
-    ? `${MARK_INK_LEFT} ${MARK_INK_TOP} ${MARK_INK_WIDTH} ${MARK_INK_HEIGHT}`
-    : `0 0 ${MARK_VIEWBOX} ${MARK_VIEWBOX}`;
-
   return (
     <svg
-      viewBox={viewBox}
+      viewBox={`0 0 ${MARK_VIEWBOX} ${MARK_VIEWBOX}`}
       width={width ?? size}
       height={height ?? size}
       fill="none"
