@@ -38,6 +38,16 @@
  * what the wall is for. They are not claims about real people — the names are
  * invented, and each one's page is served from this list (see
  * PublicProfilePage) so nothing on the wall links into a dead end.
+ *
+ * **The three `link` values are deliberately unresolvable.** §1 allows one
+ * optional link per Moodscreen and three seeds carry one, so the public page's
+ * link actually draws somewhere rather than being a code path nobody has seen.
+ * They sit on the `.example` TLD, which RFC 2606 reserves and nobody can
+ * register — a plausible-looking real domain on an invented person is an
+ * endorsement that person cannot give, and it would point traffic at whoever
+ * happens to own it. The cost is that clicking one fails, which is the right
+ * trade for a fixture and the wrong one for launch: give them real URLs or take
+ * them off before these seeds meet an audience.
  */
 export const WALL_SEEDS = [
   {
@@ -79,6 +89,7 @@ export const WALL_SEEDS = [
     username: "rei",
     location: "Tokyo",
     at: "2026-09-01T09:00:00",
+    link: "https://tanaka.example/hiring",
   },
   {
     mood: "thinking",
@@ -109,6 +120,7 @@ export const WALL_SEEDS = [
     username: "maya",
     location: "Berlin",
     at: "2026-09-01T20:10:00",
+    link: "https://bergstrom.example/talks",
   },
   {
     mood: "learning",
@@ -149,6 +161,7 @@ export const WALL_SEEDS = [
     username: "isaac",
     location: "Lagos",
     at: "2026-09-01T10:20:00",
+    link: "https://twekyard.example",
   },
   {
     mood: "creating",

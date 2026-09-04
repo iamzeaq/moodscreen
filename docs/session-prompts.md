@@ -26,7 +26,7 @@ Work happens on `redesign`.
 | 2b — Renderer rework for the new §7 | done |
 | 3 — Hero | done |
 | 4 — Pulse and wall | done |
-| 5 — Remaining sections and the public page | next |
+| 5 — Remaining sections and the public page | done |
 
 §7 was rewritten after session 2 shipped (`d087307`). Sessions 1 and 2 are
 history and are recorded below as what was built, not as work to do. The gap
@@ -240,6 +240,55 @@ once two sections hide themselves.
 
 Check: read the whole page top to bottom on a phone. Anything that could have
 come from a one-line prompt gets revised.
+
+**Shipped**, with five decisions the prompt above does not settle:
+
+1. **The public page keeps location, and drops everything else.** The build
+   order was the session's own brief: avatar, name and handle small at the top;
+   the Moodscreen large; `updated N minutes ago` with the live dot directly
+   under it; the one optional link; a quiet "Make your own Moodscreen" last.
+   Location is not in that list but §7.10 names it, so it sits with the identity
+   block as a third small line rather than being dropped or promoted.
+2. **The single query is a view, not a client-side join.** `moodscreens` has no
+   foreign key to `profiles` — both point at `auth.users` — so PostgREST cannot
+   embed one in the other and no amount of client work makes it one request.
+   `public_moodscreens` in `schema.sql` does the join, exactly as session 4's
+   `wall_moodscreens` already did for the wall. It is a LEFT JOIN: claiming a
+   page and writing a Moodscreen are two acts, and an inner join would answer
+   "this page doesn't exist" to someone who claimed it a minute ago.
+3. **`useFittedWidth` exists because §7's `width` is not a CSS width.** It is
+   the number the transform's scale is computed from, so `max-w-full` caps the
+   box and lets the drawn card run past it. That was already true of the hero at
+   360 (clipped by the section's `overflow-hidden` on a 360px phone) and would
+   have been a sideways-scrolling page on the two new views. The hook measures
+   the column and the card follows; the hero, the app and the public page all
+   use it.
+4. **The themes scroller shows real seeds, not specimens.** §9.5 asks for "real
+   Moodscreens in each theme", and §9.3's seed list already carries one of every
+   free theme because its mood, surface and theme cycles are run against each
+   other. So the section is a lookup over `WALL_SEEDS`, not a new fixture, and
+   each tile is exactly what that seed's own page renders. The cost is that the
+   five statements differ, which isolates the typeface less cleanly than five
+   identical sentences would — the label under each tile carries that instead.
+5. **`GeneratorPanel` is gone, not hidden behind a flag.** §7.10's app view is
+   one Moodscreen and two actions, so the studio's two-column layout had nowhere
+   to be. The editor is not deleted — `StatusForm` is intact behind "Change it",
+   with every field it had including the single link. Copy link and Save the
+   image went with it: `sharePng` already opens the share sheet where there is
+   one and saves the file where there is not, so one button is the whole of
+   "get this out of here" and two would be how a view ends up with four.
+
+The vocabulary audit found the word "card" only in code — Tailwind's `bg-card`,
+`--app-card`, element ids, comments — which §2 permits. What it did find was the
+banned phrase itself: `SignupWidget` shipped `"create yours"` as the nav label on
+every page. Also fixed: "Open studio →" (§12's appended arrow, plus a word §2
+does not have), "Save your moodscreen" lowercase in the auth modal, and
+onboarding's "Finish setup" / "Status" / "What you're up to". Onboarding's
+username field also took §10's `moodscreen.live/` prefix in place of a bare `/`.
+
+`/kitchen-sink` still says "card" in its notes and is left alone deliberately: it
+is an internal reference that quotes CLAUDE.md's own reasoning, and it is not
+linked from anything a user reads.
 
 ---
 

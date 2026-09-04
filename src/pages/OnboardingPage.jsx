@@ -47,7 +47,7 @@ export default function OnboardingPage() {
     const loc = location.trim();
     const st = status.trim();
     if (!loc || !st) {
-      setError("Add location and status.");
+      setError("Add a location, and say what you're on.");
       return;
     }
     setBusy(true);
@@ -79,9 +79,13 @@ export default function OnboardingPage() {
           ← Home
         </Link>
 
-        <h1 className="ds-title-sm mt-8">Finish setup</h1>
+        {/* §2 — "Claim moodscreen.live/yourname", never "Sign up" or "Finish
+          * setup". What happens here is the claim; the sign-in before it was
+          * only what makes the name stick. */}
+        <h1 className="ds-title-sm mt-8">Claim your page</h1>
         <p className="mt-2 text-sm leading-relaxed text-secondary">
-          Choose your public URL and a first status. You can edit everything later in the studio.
+          Pick the name your Moodscreen lives at, and say what you&apos;re on. Both
+          change whenever you want.
         </p>
 
         <form onSubmit={onSubmit} className="mt-8 space-y-5">
@@ -89,8 +93,12 @@ export default function OnboardingPage() {
             <label htmlFor="onb-username" className="block text-xs font-medium text-secondary">
               Username
             </label>
+            {/* §10 — the username field shows `moodscreen.live/` as a fixed
+              * prefix inside the field, not as a label above it. A bare `/`
+              * turns the ask into "pick a username", which is the version §9.1
+              * says converts worse. */}
             <div className="mt-1.5 flex items-center gap-1 rounded-xl border border-border bg-card px-3 py-2.5 text-sm">
-              <span className="shrink-0 text-meta">/</span>
+              <span className="shrink-0 text-meta">moodscreen.live/</span>
               <input
                 id="onb-username"
                 name="username"
@@ -120,8 +128,9 @@ export default function OnboardingPage() {
           </div>
 
           <div>
+            {/* §2 — "Say what you're on", never "Enter your status". */}
             <label htmlFor="onb-status" className="block text-xs font-medium text-secondary">
-              Status
+              Say what you&apos;re on
             </label>
             <textarea
               id="onb-status"
@@ -130,7 +139,7 @@ export default function OnboardingPage() {
               value={status}
               onChange={(e) => setStatus(e.target.value)}
               className="mt-1.5 w-full resize-none rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-primary outline-none placeholder:text-meta"
-              placeholder="What you’re up to"
+              placeholder="What are you on right now?"
             />
           </div>
 

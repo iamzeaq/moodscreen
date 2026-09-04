@@ -44,7 +44,14 @@ function Chevron({ expanded, className, compact }) {
 }
 
 export default function SignupWidget({
-  defaultLabel = "create yours",
+  /**
+   * §2's vocabulary table bans "Create yours" by name, which is what this said.
+   * The ask is not to make something — by the time anyone reads this they have
+   * already made one in the hero — it is to keep the address. "Claim" is the
+   * table's verb; the full `moodscreen.live/yourname` is the claim field's job
+   * and does not fit a nav chip.
+   */
+  defaultLabel = "Claim your page",
   guestStudioPath = "/create",
   className = "",
   align = "start",
@@ -152,7 +159,9 @@ export default function SignupWidget({
           onClick={goStudio}
           className="signup-widget-studio-only inline-flex min-h-12 items-center justify-center rounded-[22px] border border-black/[0.1] bg-card/90 px-7 text-base font-medium text-primary shadow-[0_2px_12px_-4px_rgba(0,0,0,0.12)] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:scale-[1.02] hover:shadow-[0_8px_28px_-8px_rgba(0,0,0,0.18)] active:scale-[0.98]"
         >
-          Open studio&nbsp;→
+          {/* §12 — no arrow appended to button text, and §2 has no "studio":
+            * what this opens is your Moodscreen (§7.10). */}
+          Your Moodscreen
         </button>
       </div>
     );
@@ -232,7 +241,9 @@ export default function SignupWidget({
               }}
               className="signup-widget-action flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-black/[0.08] bg-white/60 px-4 text-center text-sm font-medium text-primary shadow-[0_1px_0_rgba(0,0,0,0.04)] transition-[transform,background-color,box-shadow] duration-300 ease-out hover:bg-white hover:shadow-[0_4px_16px_-6px_rgba(0,0,0,0.12)] active:scale-[0.99]"
             >
-              Open studio&nbsp;→
+              {/* §12 — no arrow appended to button text, and §2 has no "studio":
+            * what this opens is your Moodscreen (§7.10). */}
+          Your Moodscreen
             </button>
             <button
               type="button"
@@ -296,7 +307,7 @@ export default function SignupWidget({
           onPointerUp={() => setPressed(false)}
           onPointerCancel={() => setPressed(false)}
           onClick={() => setPinned((p) => !p)}
-          title="Sign-in with Google, X, or continue as guest"
+          title="Sign in with Google or X, or keep going without an account"
         >
           <span
             className={[
@@ -376,7 +387,7 @@ export default function SignupWidget({
                   in at build time. Add both in your hosting dashboard (e.g. Vercel / Netlify / Cloudflare → Environment
                   variables for Production), save, then trigger a new deploy. Your local{" "}
                   <code className="rounded bg-white/10 px-1 py-0.5 text-[0.65rem]">.env</code> does not affect the live
-                  site. You can still use the studio.
+                  site. You can still make a Moodscreen.
                 </p>
               ) : null}
               <button

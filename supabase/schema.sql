@@ -131,6 +131,43 @@ CREATE POLICY "moodscreens_select_public_profile" ON public.moodscreens FOR SELE
     )
   );
 
+-- One query for the public page, not two.
+--
+-- §11: "The public profile does two sequential Supabase round-trips. Join them
+-- — this is the page shared links land on." The client could not do it on its
+-- own: moodscreens has no foreign key to profiles (both point at auth.users),
+-- so PostgREST cannot embed one in the other, and the page had to fetch the
+-- profile, wait, then fetch the Moodscreen with the id it came back with. On a
+-- phone opening a link from a story that is two serial round-trips before
+-- anything at all is drawn. The join belongs in the database, same as the
+-- wall's.
+--
+-- LEFT JOIN, not INNER: claiming a page and writing a Moodscreen are two acts
+-- and the first can stand without the second. An inner join would make a page
+-- claimed a minute ago read as "this profile doesn't exist", which is the worst
+-- possible answer to someone who just claimed it.
+--
+-- Deliberately not security_invoker, matching wall_moodscreens: the view runs
+-- with its owner's rights and its WHERE clause is the whole access rule. It
+-- exposes exactly the rows whose owner claimed a page — the same set the
+-- existing profiles and moodscreens policies already make public, so this adds
+-- no reach, only one round-trip less.
+DROP VIEW IF EXISTS public.public_moodscreens;
+
+CREATE VIEW public.public_moodscreens AS
+SELECT
+  p.username,
+  p.location,
+  p.last_active,
+  m.data,
+  m.updated_at
+FROM public.profiles p
+  LEFT JOIN public.moodscreens m ON m.user_id = p.id
+WHERE
+  p.username IS NOT NULL;
+
+GRANT SELECT ON public.public_moodscreens TO anon, authenticated;
+
 -- ---------------------------------------------------------------------------
 -- The wall (CLAUDE.md §9.3) and the pulse (§9.2)
 -- ---------------------------------------------------------------------------

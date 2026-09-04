@@ -3,9 +3,8 @@
  *
  * The rhythm §9 asks for is contained → contained → full-bleed → contained →
  * scroller → contained, with the break in the middle giving the page a spine.
- * The pulse and the wall are that middle; session 5 replaces how-it-works and
- * the theme scroller, which are still the pre-redesign sections standing in
- * those two places.
+ * The hero and the pulse are the first two, the wall is the break, how-it-works
+ * is contained again, the themes are the scroller, and the close is the last.
  *
  * What is already true, and must stay true:
  *
@@ -31,8 +30,8 @@
  */
 import { Fragment, useRef } from "react";
 import Hero from "../components/Hero.jsx";
-import HowItLooks from "../components/HowItLooks.jsx";
-import SamplesSection from "../components/SamplesSection.jsx";
+import HowItWorks from "../components/HowItWorks.jsx";
+import ThemesSection from "../components/ThemesSection.jsx";
 import PulseSection from "../components/PulseSection.jsx";
 import WallSection from "../components/WallSection.jsx";
 import ClosingSection from "../components/ClosingSection.jsx";
@@ -58,8 +57,8 @@ export default function LandingPage() {
           node: <WallSection tiles={tiles} joinTargetRef={joinTargetRef} />,
         }
       : null,
-    { key: "how", node: <HowItLooks /> },
-    { key: "samples", node: <SamplesSection /> },
+    { key: "how", node: <HowItWorks /> },
+    { key: "themes", node: <ThemesSection /> },
     { key: "close", node: <ClosingSection /> },
   ].filter(Boolean);
 

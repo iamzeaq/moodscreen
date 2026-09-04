@@ -42,7 +42,11 @@ function payload(seed) {
     mood: seed.mood,
     surface: seed.surface,
     statement: seed.statement,
-    link: "",
+    /* Read from the seed, not blanked. Most carry no link and resolve to ""
+     * exactly as before; the few that do would otherwise reach the database
+     * with the field silently dropped, and the page would look like it could
+     * not render a link rather than like there was none to render. */
+    link: seed.link || "",
     themeId: seed.themeId,
     avatarUrl: null,
     created_at: at,

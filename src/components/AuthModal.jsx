@@ -50,11 +50,16 @@ export default function AuthModal() {
       />
 
       <div className="relative w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-[0_24px_64px_-20px_rgba(0,0,0,0.25)] ring-1 ring-black/[0.04]">
+        {/* The only thing that opens this is the claim field, so it says what
+          * the claim needs rather than describing an account. §2: "Claim
+          * moodscreen.live/yourname", never "Sign up" — and the Moodscreen is
+          * a proper noun, never lowercase and never a card. */}
         <h2 id="auth-modal-title" className="ds-title-sm">
-          Save your moodscreen
+          Claim your page
         </h2>
         <p className="mt-2 ds-body text-secondary">
-          Optional — keep editing as a guest anytime. Sign in to sync across devices.
+          Signing in is what makes the name stick. Your Moodscreen is already made
+          and it stays yours either way.
         </p>
 
         <div className="mt-6 flex flex-col gap-2.5">

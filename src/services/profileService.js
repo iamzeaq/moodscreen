@@ -3,6 +3,7 @@
  */
 import { supabase } from "../lib/supabaseClient.js";
 import { normalizeUsernameSlug } from "../lib/profileUtils.js";
+import { normalizeStoredMoodscreen } from "../lib/moodscreenPayload.js";
 import { FALLBACK_MOOD_ID } from "../lib/moodscreenModel.js";
 import { upsertMoodscreenForUser } from "./moodscreenDataService.js";
 
@@ -49,6 +50,49 @@ export async function fetchProfileByUsername(username) {
     .eq("username", slug)
     .maybeSingle();
   return { data: data ?? null, error };
+}
+
+/**
+ * The public page, in one round-trip — §7.10 and §11.
+ *
+ * This is the page every shared link lands on, and it used to cost two serial
+ * requests: the profile, then the Moodscreen keyed by the id it returned. The
+ * `public_moodscreens` view does that join in the database (see schema.sql for
+ * why the client cannot), so a stranger opening a story link waits for one
+ * request instead of two chained ones.
+ *
+ * Returns the profile columns and the *normalised* payload together, so the
+ * caller has no second shape to unpack — and a claimed page with no Moodscreen
+ * written yet still resolves, with `moodscreen` normalised from null.
+ *
+ * @param {string} username
+ * @returns {Promise<{ data: object | null, error: Error | null }>}
+ */
+export async function fetchPublicPage(username) {
+  if (!supabase || !username) return { data: null, error: null };
+  const slug = normalizeUsernameSlug(username);
+  const { data, error } = await supabase
+    .from("public_moodscreens")
+    .select("username, location, last_active, data, updated_at")
+    .eq("username", slug)
+    .maybeSingle();
+
+  if (error) return { data: null, error };
+  if (!data?.username) return { data: null, error: null };
+
+  return {
+    data: {
+      username: data.username,
+      location: data.location ?? "",
+      last_active: data.last_active ?? null,
+      moodscreen: normalizeStoredMoodscreen(data.data),
+      /* The row's own stamp is the fallback for a payload written before
+       * `updated_at` was stored inside it — §7.4's tint and the "updated N
+       * minutes ago" line both run off this. */
+      updated_at: data.updated_at ?? null,
+    },
+    error: null,
+  };
 }
 
 /**
