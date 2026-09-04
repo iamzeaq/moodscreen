@@ -6,22 +6,30 @@
  * form object as the statement and the mood, and it lands in guest
  * localStorage with everything else. No upload, no server, no sign-in.
  *
- * §7.5 keeps the avatar at 30px on the card — "a signature, not a header" —
- * so the control is deliberately small too. A big drop zone here would
- * advertise the avatar as the important choice, and it is the least important
- * of the four.
+ * It is a **labelled button**, and the first version's failure is the reason.
+ * That one was a bare 44px circle carrying only a `+`: `--panel` on `--canvas`
+ * is a 3% step, the border is 6% white, and the result was a control nobody
+ * could find. Worse, sitting beside the three surface squares it read as a
+ * fourth swatch rather than as an action.
+ *
+ * So it uses `<Button variant="secondary">` — the §10 component, with the
+ * hover, active, focus-visible and disabled states already specified — and it
+ * says what it does in words. §7.5's "the avatar is a signature, not a header"
+ * governs the 30px disc *on the card*; it says nothing about the size of the
+ * control that sets it, and an invisible control is not restraint.
  */
 import { useCallback, useId, useRef, useState } from "react";
+import Button from "../ui/Button.jsx";
 import { fileToAvatarDataUrl } from "../../lib/avatarImage.js";
 
-const SIZE = 44;
+/** The preview inside the button. Small: the label is doing the work. */
+const PREVIEW = 20;
 
 export default function AvatarField({
   value = "",
   name = "",
   onChange = () => {},
   className = "",
-  label = "Photo",
 }) {
   const inputRef = useRef(null);
   const id = useId();
@@ -60,74 +68,55 @@ export default function AvatarField({
           accept="image/*"
           onChange={pick}
           className="sr-only"
+          aria-label={value ? "Change your photo" : "Add a photo"}
         />
 
-        <button
-          type="button"
+        <Button
+          variant="secondary"
           onClick={() => inputRef.current?.click()}
-          aria-busy={busy || undefined}
-          aria-label={value ? "Change your photo" : "Add a photo"}
-          title={value ? "Change your photo" : "Add a photo"}
-          className={[
-            "relative grid shrink-0 place-items-center overflow-hidden rounded-full",
-            "cursor-pointer touch-manipulation border border-line bg-panel",
-            "hover:border-line-strong",
-            "outline-none focus-visible:outline-2 focus-visible:outline-accent-ring focus-visible:outline-offset-2",
-            "disabled:cursor-progress",
-          ].join(" ")}
-          style={{
-            width: SIZE,
-            height: SIZE,
-            transitionProperty: "border-color, background-color",
-            transitionDuration: "var(--dur-hover)",
-            transitionTimingFunction: "var(--ease)",
-          }}
-          disabled={busy}
+          loading={busy}
         >
-          {value ? (
-            <img
-              src={value}
-              alt=""
-              className="h-full w-full object-cover"
-              style={{ opacity: busy ? 0.5 : 1 }}
-            />
-          ) : initial ? (
-            <span className="font-ui text-15 font-semibold text-muted">{initial}</span>
-          ) : (
-            /* A plus, not a camera. The camera glyph is the most worn icon in
-             * this position and it promises a capture flow this does not have. */
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path
-                d="M8 3.5v9M3.5 8h9"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                className="text-muted"
-              />
-            </svg>
-          )}
-        </button>
-
-        <label htmlFor={id} className="sr-only">
-          {label}
-        </label>
+          <span
+            aria-hidden="true"
+            className="grid shrink-0 place-items-center overflow-hidden rounded-full border border-line-strong"
+            style={{ width: PREVIEW, height: PREVIEW }}
+          >
+            {value ? (
+              <img src={value} alt="" className="h-full w-full object-cover" />
+            ) : initial ? (
+              <span className="text-11 font-semibold text-muted">{initial}</span>
+            ) : (
+              /* A plus, not a camera. The camera glyph is the most worn icon
+               * in this position and it promises a capture flow this does not
+               * have. */
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                <path
+                  d="M6 2v8M2 6h8"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                />
+              </svg>
+            )}
+          </span>
+          {value ? "Change photo" : "Add photo"}
+        </Button>
 
         {value ? (
-          <button
-            type="button"
+          <Button
+            variant="ghost"
             onClick={() => {
               setError(null);
               onChange(null);
             }}
-            className="rounded-sm px-1 text-12 text-faint outline-none hover:text-muted focus-visible:outline-2 focus-visible:outline-accent-ring focus-visible:outline-offset-2"
           >
             Remove
-          </button>
+          </Button>
         ) : null}
       </div>
 
       {error ? (
-        <p className="max-w-[28ch] text-11 text-danger" role="alert">
+        <p className="max-w-[32ch] text-11 text-danger" role="alert">
           {error}
         </p>
       ) : null}
