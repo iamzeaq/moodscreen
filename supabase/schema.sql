@@ -1,4 +1,15 @@
--- Run in Supabase SQL Editor (Dashboard → SQL → New query)
+-- Run in Supabase SQL Editor (Dashboard → SQL → New query).
+--
+-- **This file is safe to re-run.** Every statement is idempotent, so running it
+-- against a database that already has some of these objects updates them rather
+-- than erroring partway through and leaving the rest uncreated.
+--
+-- Postgres has no CREATE POLICY IF NOT EXISTS, so every policy is preceded by a
+-- DROP POLICY IF EXISTS. Same for the view and for pulse_by_mood: CREATE OR
+-- REPLACE refuses a changed column list or return type, so both are dropped
+-- first and recreated. That is the whole trick — there is nothing to remember
+-- when editing this file except to keep each new object in the same shape.
+
 -- Optional: mirrors auth.users for id + email (app reads email from session too)
 CREATE TABLE IF NOT EXISTS public.users (
   id UUID PRIMARY KEY REFERENCES auth.users (id) ON DELETE CASCADE,
@@ -7,6 +18,8 @@ CREATE TABLE IF NOT EXISTS public.users (
 );
 
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users read self" ON public.users;
 
 CREATE POLICY "Users read self" ON public.users
   FOR SELECT USING (auth.uid() = id);
@@ -24,16 +37,29 @@ CREATE INDEX IF NOT EXISTS moodscreens_user_id_idx ON public.moodscreens (user_i
 
 ALTER TABLE public.moodscreens ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users read own moodscreen" ON public.moodscreens;
+
 CREATE POLICY "Users read own moodscreen" ON public.moodscreens
   FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users insert own moodscreen" ON public.moodscreens;
 
 CREATE POLICY "Users insert own moodscreen" ON public.moodscreens
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users update own moodscreen" ON public.moodscreens;
+
 CREATE POLICY "Users update own moodscreen" ON public.moodscreens
   FOR UPDATE USING (auth.uid() = user_id);
 
--- Keep public.users in sync when someone signs up
+-- Keep public.users in sync when someone signs up.
+--
+-- CREATE OR REPLACE here, not the drop-and-recreate used for the view and for
+-- pulse_by_mood below. A trigger function's return type is `trigger` and cannot
+-- become anything else, so REPLACE can never hit the changed-signature error
+-- those two are guarded against — and dropping it would fail outright if any
+-- trigger anywhere still depended on it, which is exactly the partway failure
+-- this file exists to avoid.
 CREATE OR REPLACE FUNCTION public.handle_new_user ()
   RETURNS TRIGGER
   LANGUAGE plpgsql
@@ -51,6 +77,9 @@ BEGIN
 END;
 $$;
 
+-- CREATE TRIGGER has no IF NOT EXISTS, so this pair is the idempotent form.
+-- Dropping the trigger is safe in a way that dropping its function is not:
+-- nothing depends on a trigger.
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 
 CREATE TRIGGER on_auth_user_created
@@ -73,16 +102,24 @@ WHERE
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "profiles_select_own_or_public" ON public.profiles;
+
 CREATE POLICY "profiles_select_own_or_public" ON public.profiles FOR SELECT
   USING (auth.uid () = id OR username IS NOT NULL);
 
+DROP POLICY IF EXISTS "profiles_insert_own" ON public.profiles;
+
 CREATE POLICY "profiles_insert_own" ON public.profiles FOR INSERT
   WITH CHECK (auth.uid () = id);
+
+DROP POLICY IF EXISTS "profiles_update_own" ON public.profiles;
 
 CREATE POLICY "profiles_update_own" ON public.profiles FOR UPDATE
   USING (auth.uid () = id);
 
 -- Public moodscreen cards: readable when owner has chosen a username
+DROP POLICY IF EXISTS "moodscreens_select_public_profile" ON public.moodscreens;
+
 CREATE POLICY "moodscreens_select_public_profile" ON public.moodscreens FOR SELECT
   USING (
     EXISTS (
@@ -119,7 +156,13 @@ ALTER TABLE public.profiles
 -- its WHERE clause is the whole access rule. It exposes exactly the rows whose
 -- owner claimed a page AND opted into the wall, and only the four columns the
 -- wall draws.
-CREATE OR REPLACE VIEW public.wall_moodscreens AS
+--
+-- Dropped and recreated rather than CREATE OR REPLACE, which refuses any change
+-- to the column list — so adding a column to the wall later would fail here
+-- instead of applying.
+DROP VIEW IF EXISTS public.wall_moodscreens;
+
+CREATE VIEW public.wall_moodscreens AS
 SELECT
   p.username,
   p.location,
@@ -174,7 +217,13 @@ CREATE POLICY "wall_seeds_select_all" ON public.wall_seeds FOR SELECT
 -- what counts as a *live* Moodscreen is an open product decision, so today this
 -- counts every one. When that is settled the answer lands here and in
 -- PULSE_WINDOW_HOURS on the client, and nothing else moves.
-CREATE OR REPLACE FUNCTION public.pulse_by_mood (window_hours INT DEFAULT NULL)
+--
+-- Dropped first for the same reason as the view: CREATE OR REPLACE cannot
+-- change a function's return type, and this one returns a table whose shape is
+-- exactly what a freshness rule might alter.
+DROP FUNCTION IF EXISTS public.pulse_by_mood (INT);
+
+CREATE FUNCTION public.pulse_by_mood (window_hours INT DEFAULT NULL)
   RETURNS TABLE (
     mood_id TEXT,
     total BIGINT
