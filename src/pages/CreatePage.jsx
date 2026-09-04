@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import AuthBar from "../components/AuthBar.jsx";
 import GeneratorPanel from "../components/GeneratorPanel.jsx";
+import WallOptIn from "../components/WallOptIn.jsx";
 
 export default function CreatePage() {
   return (
@@ -21,6 +22,15 @@ export default function CreatePage() {
           </div>
         </div>
       </header>
+
+      {/* §9.3's opt-in. It sits here rather than inside the studio panel
+        * because it is a setting about the page, not a control on the
+        * Moodscreen — and because §7.10's app view replaces that panel, and
+        * this should move with the identity rather than be untangled from it.
+        * Renders nothing until a page has been claimed. */}
+      <div className="mx-auto w-full max-w-5xl px-4 pt-6 sm:px-6">
+        <WallOptIn />
+      </div>
 
       <GeneratorPanel />
     </div>

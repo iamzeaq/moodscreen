@@ -33,7 +33,7 @@ export async function fetchProfileByUserId(userId) {
   if (!supabase || !userId) return { data: null, error: null };
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, username, location, last_active, created_at")
+    .select("id, username, location, last_active, created_at, wall_public")
     .eq("id", userId)
     .maybeSingle();
   return { data: data ?? null, error };
@@ -45,10 +45,29 @@ export async function fetchProfileByUsername(username) {
   const slug = normalizeUsernameSlug(username);
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, username, location, last_active, created_at")
+    .select("id, username, location, last_active, created_at, wall_public")
     .eq("username", slug)
     .maybeSingle();
   return { data: data ?? null, error };
+}
+
+/**
+ * §9.3 — whether this Moodscreen appears on the wall. Opt-in, default off.
+ *
+ * Separate from having claimed a page, and deliberately so. Claiming publishes
+ * moodscreen.live/name, which is the whole point of claiming; being pulled into
+ * a scrolling row on the front page is a second ask and gets a second answer.
+ *
+ * @param {string} userId
+ * @param {boolean} wallPublic
+ */
+export async function setWallPublic(userId, wallPublic) {
+  if (!supabase || !userId) return { error: new Error("Not signed in") };
+  const { error } = await supabase
+    .from("profiles")
+    .update({ wall_public: Boolean(wallPublic) })
+    .eq("id", userId);
+  return { error: error ?? null };
 }
 
 /**

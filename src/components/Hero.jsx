@@ -31,7 +31,15 @@ import ClaimField from "./ClaimField.jsx";
 import Button from "./ui/Button.jsx";
 import { PLACEHOLDER_STATEMENT, useMoodscreen } from "../context/MoodscreenContext.jsx";
 
-export default function Hero() {
+export default function Hero({
+  /**
+   * The wrapper around the preview, handed up so §6's fourth moment can fly a
+   * copy of it down to the wall. The hero never styles this element itself —
+   * HeroJoin writes to it during the flight, and a re-render here would undo
+   * that if the two shared a node.
+   */
+  cardRef,
+}) {
   const {
     formValue,
     handleFormChange,
@@ -66,7 +74,7 @@ export default function Hero() {
           * and stacked on a phone with the card first — seeing the thing you
           * are making is what makes typing into it feel like making. */}
         <div className="mt-12 flex w-full flex-col items-center gap-10 lg:mt-16 lg:flex-row lg:items-center lg:justify-center lg:gap-16">
-          <div className="order-1 shrink-0 lg:order-2">
+          <div ref={cardRef} className="order-1 shrink-0 lg:order-2">
             {/* Exactly the props the export nodes get — no local
               * substitutions. That is what makes the saved PNG the image on
               * screen rather than a near-miss of it. */}

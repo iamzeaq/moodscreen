@@ -93,3 +93,105 @@ CREATE POLICY "moodscreens_select_public_profile" ON public.moodscreens FOR SELE
         AND p.username IS NOT NULL
     )
   );
+
+-- ---------------------------------------------------------------------------
+-- The wall (CLAUDE.md §9.3) and the pulse (§9.2)
+-- ---------------------------------------------------------------------------
+-- Appearing on the wall is opt-in and defaults to off.
+--
+-- This is a separate fact from having claimed a page, and the two must not be
+-- collapsed into one. Claiming moodscreen.live/name publishes that page — that
+-- is what claiming *is*, and the policy above is right to gate on it. Being
+-- pulled into a scrolling row on the front page is a different ask, so it gets
+-- its own flag rather than riding on the username.
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS wall_public BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- One query for the wall, not two.
+--
+-- §11 flags the public profile's two sequential round-trips as a known problem,
+-- and the wall would have had the same shape: moodscreens has no foreign key to
+-- profiles (both point at auth.users), so PostgREST cannot embed one in the
+-- other and the client would have had to fetch rows and then names. The join
+-- belongs in the database.
+--
+-- Deliberately not security_invoker: the view runs with its owner's rights and
+-- its WHERE clause is the whole access rule. It exposes exactly the rows whose
+-- owner claimed a page AND opted into the wall, and only the four columns the
+-- wall draws.
+CREATE OR REPLACE VIEW public.wall_moodscreens AS
+SELECT
+  p.username,
+  p.location,
+  m.data,
+  m.updated_at
+FROM public.moodscreens m
+  JOIN public.profiles p ON p.id = m.user_id
+WHERE
+  p.username IS NOT NULL
+  AND p.wall_public;
+
+GRANT SELECT ON public.wall_moodscreens TO anon, authenticated;
+
+-- Seeded Moodscreens for the wall.
+--
+-- §9.3: an empty wall is worse than no wall. These are examples, they are
+-- authored in src/lib/wallSeeds.js, and supabase/seed-wall.sql is generated
+-- from that file — never hand-edited here.
+--
+-- They are kept apart from real rows rather than inserted as fake users for two
+-- reasons: moodscreens.user_id is a foreign key to auth.users, so seeding it
+-- would mean thirty fabricated accounts; and when the wall fills with real
+-- Moodscreens this table is dropped in one statement with nothing else to
+-- unpick.
+CREATE TABLE IF NOT EXISTS public.wall_seeds (
+  username TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  location TEXT NOT NULL DEFAULT '',
+  -- The v3 payload, so seeds read through normalizeStoredMoodscreen exactly as
+  -- stored Moodscreens do and the wall has one code path.
+  data JSONB NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0
+);
+
+ALTER TABLE public.wall_seeds ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "wall_seeds_select_all" ON public.wall_seeds;
+
+-- Readable by anyone; writable by nobody holding the anon key. Seeds are
+-- loaded from the SQL editor or the service role, never from the app.
+CREATE POLICY "wall_seeds_select_all" ON public.wall_seeds FOR SELECT
+  USING (TRUE);
+
+-- §9.2 — the pulse: one aggregate, counting Moodscreens by mood.
+--
+-- SECURITY DEFINER because it has to see rows the caller cannot: the count is
+-- the whole platform, not the caller's own row and not the wall-public subset.
+-- What it returns is ten integers, so it discloses scale and nothing about any
+-- person — no id, no handle, no statement.
+--
+-- `window_hours` is the freshness rule, and it is deliberately NULL by default:
+-- what counts as a *live* Moodscreen is an open product decision, so today this
+-- counts every one. When that is settled the answer lands here and in
+-- PULSE_WINDOW_HOURS on the client, and nothing else moves.
+CREATE OR REPLACE FUNCTION public.pulse_by_mood (window_hours INT DEFAULT NULL)
+  RETURNS TABLE (
+    mood_id TEXT,
+    total BIGINT
+  )
+  LANGUAGE sql
+  STABLE
+  SECURITY DEFINER
+  SET search_path = public
+  AS $$
+  SELECT
+    COALESCE(NULLIF(m.data ->> 'mood', ''), 'thinking') AS mood_id,
+    COUNT(*)::BIGINT AS total
+  FROM public.moodscreens m
+  WHERE
+    window_hours IS NULL
+    OR m.updated_at > NOW() - (window_hours || ' hours')::INTERVAL
+  GROUP BY 1;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.pulse_by_mood (INT) TO anon, authenticated;

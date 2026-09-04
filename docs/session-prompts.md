@@ -25,8 +25,8 @@ Work happens on `redesign`.
 | 2 — The Moodscreen renderer | done, `bde899c` |
 | 2b — Renderer rework for the new §7 | done |
 | 3 — Hero | done |
-| 4 — Pulse and wall | next |
-| 5 — Remaining sections and the public page | ahead |
+| 4 — Pulse and wall | done |
+| 5 — Remaining sections and the public page | next |
 
 §7 was rewritten after session 2 shipped (`d087307`). Sessions 1 and 2 are
 history and are recorded below as what was built, not as work to do. The gap
@@ -184,6 +184,39 @@ particular is cut back to the shape §9.2's pulse will fill.
 
 Check: wall scrolls smoothly on a mid-range Android, edges fade rather than
 clip, reduced-motion disables the scroll effect.
+
+**Shipped**, with four decisions the prompt above does not settle:
+
+1. **No freshness rule yet.** The wall shows the most recent public Moodscreens
+   with no expiry, and the pulse counts every Moodscreen rather than only recent
+   ones. What makes one stale is an open product question; it is deliberately
+   not guessed at. When it is settled it lands in two constants —
+   `WALL_WINDOW_HOURS` and `PULSE_WINDOW_HOURS` in `wallService.js`, and the
+   `window_hours` argument `pulse_by_mood` already takes — and no query shape
+   moves.
+2. **The pulse is built but will not draw yet.** §9's 200 threshold is real and
+   seeds are not counted towards it — padding the number with examples to clear
+   the bar that exists to stop a small number being advertised would be
+   advertising a false one. So the section is dead until there are 200 real
+   Moodscreens, which is correct and worth knowing.
+3. **`wall_public` is a new column on `profiles`, separate from the username.**
+   Claiming a page publishes that page; appearing on the front page is a second
+   ask. The old policy gating public reads on `username IS NOT NULL` is
+   unchanged, so the public profile still works exactly as before.
+4. **Seeds are their own table.** `moodscreens.user_id` is a foreign key to
+   `auth.users`, so seeding it would have meant thirty fabricated accounts.
+   `src/lib/wallSeeds.js` is the authored source, `supabase/seed-wall.sql` is
+   generated from it by `npm run seed:wall`, and the app falls back to the JS
+   list when Supabase is not configured — which is how the wall draws in local
+   development at all. `PublicProfilePage` serves seed pages from the same list
+   so no tile on the wall links into a dead end. Drop the table when real
+   Moodscreens fill the rows.
+
+Also here: `WallOptIn` on `/create`, since a flag nobody can set is not opt-in,
+it is off. It is placed outside `GeneratorPanel` so §7.10's app view can take it
+whole. `ColorEnergySection` is gone. `LandingPage` now builds its section list
+at render time, because §9.7's alternating dividers cannot be written by hand
+once two sections hide themselves.
 
 ---
 

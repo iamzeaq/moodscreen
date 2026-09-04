@@ -7,6 +7,7 @@ import {
   normalizeUsernameSlug,
 } from "../lib/profileUtils.js";
 import { normalizeStoredMoodscreen } from "../lib/moodscreenPayload.js";
+import { getWallSeed } from "../lib/wallSeeds.js";
 import { fetchMoodscreenForUser } from "../services/moodscreenDataService.js";
 import { fetchProfileByUsername } from "../services/profileService.js";
 
@@ -30,6 +31,26 @@ export default function PublicProfilePage() {
       const { data: profile, error: pe } = await fetchProfileByUsername(slug);
       if (cancelled) return;
       if (pe || !profile?.username) {
+        /* A seeded Moodscreen from the wall (§9.3). Every tile on the wall
+         * links to its live page, and a seed has no row in `profiles`, so
+         * without this the thirty most visible links on the site would all land
+         * on "this profile doesn't exist" — a worse first impression than the
+         * empty wall the seeds exist to prevent. */
+        const seed = getWallSeed(slug);
+        if (seed) {
+          setCard({
+            name: seed.name,
+            location: seed.location,
+            mood: seed.mood,
+            statement: seed.statement,
+            themeId: seed.themeId,
+            surface: seed.surface,
+            at: seed.at,
+            username: seed.username,
+          });
+          setLoading(false);
+          return;
+        }
         setNotFound(true);
         setLoading(false);
         return;
