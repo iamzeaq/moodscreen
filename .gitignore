@@ -35,3 +35,7 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+
+# Working instruction notes handed to a session. They stay on disk; a future
+# session reading the repo should not mistake them for a spec.
+fix*.md

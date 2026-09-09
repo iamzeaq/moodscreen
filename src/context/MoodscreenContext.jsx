@@ -8,6 +8,9 @@ import {
   useState,
 } from "react";
 import { useAuth } from "./AuthContext.jsx";
+import MoodscreenExportSurface, {
+  EXPORT_NODE_ID,
+} from "../components/MoodscreenExportSurface.jsx";
 import {
   fetchMoodscreenForUser,
   readGuestMoodscreen,
@@ -15,19 +18,34 @@ import {
   upsertMoodscreenForUser,
   writeGuestMoodscreen,
 } from "../services/moodscreenDataService.js";
-import {
-  DEFAULT_MOOD_ENTRIES,
-  moodRowsFromEntries,
-  normalizeMoodEntries,
-} from "../lib/moodCategories.js";
 import { normalizeStoredMoodscreen } from "../lib/moodscreenPayload.js";
 import {
   canAttemptSave,
   recordSuccessfulSave,
 } from "../lib/moodscreenRateLimit.js";
-import { isActiveWithin48h } from "../lib/profileUtils.js";
-import { sanitizeMoodEntries } from "../lib/moodscreenValidation.js";
-import { captureMoodscreenCardToPngBlob } from "../lib/captureMoodscreenCard.js";
+import { accentForMood, isMoodId } from "../lib/moods.js";
+import { applyAccent } from "../lib/color.js";
+import { clampStatement } from "../lib/statementFit.js";
+import {
+  captureMoodscreenBlob,
+  ensureMoodscreenFontsReady,
+  exportFilename,
+} from "../lib/exportMoodscreen.js";
+import { DEFAULT_THEME_ID, getTheme, isThemeId } from "../themes/index.js";
+import { DEFAULT_SURFACE, isSurfaceId } from "../themes/surface.js";
+
+/** How long after the last edit to re-render the export blob. */
+const PRERENDER_DEBOUNCE_MS = 400;
+
+/** How long after the last edit to write to storage. */
+const PERSIST_DEBOUNCE_MS = 700;
+
+/**
+ * The shortest gap between two successful writes. A politeness guard against
+ * a burst of keystrokes turning into a burst of round-trips — not security,
+ * and not a reason to lose an edit: see the persist effect.
+ */
+const PERSIST_COOLDOWN_MS = 2000;
 
 /** Touch / mobile browsers need longer before revoke or the save dialog never receives the blob. */
 function downloadRevokeDelayMs() {
@@ -97,19 +115,26 @@ function normalizeShareUrl(link) {
   return `https://${t}`;
 }
 
-function shareFormSnapshot(fv) {
-  if (!fv || typeof fv !== "object") return "";
-  return JSON.stringify({
-    link: fv.link,
-    name: fv.name,
-    location: fv.location,
-    moodEntries: fv.moodEntries,
-    cardDarkMode: fv.cardDarkMode,
-    avatarUrl: fv.avatarUrl,
-  });
+/**
+ * Whether this browser can put a PNG into a share sheet at all.
+ *
+ * Desktop is the case that matters. Windows Chrome often has no
+ * `navigator.share`, and where it does it frequently refuses `files` — so the
+ * share path used to end at "Share failed: Web Share is not available", which
+ * is a dead end dressed as an error. Checked up front so the caller can take
+ * the download instead, which on a desktop is what sharing means anyway.
+ */
+function canShareFiles(file) {
+  if (typeof navigator === "undefined" || typeof navigator.share !== "function") return false;
+  if (typeof navigator.canShare !== "function") return true;
+  try {
+    return navigator.canShare({ files: [file] });
+  } catch {
+    return false;
+  }
 }
 
-/** Web Share must run in the same synchronous turn as a tap — call only from second Share click */
+/** Web Share must run in the same synchronous turn as a tap. */
 function invokeNavigatorShare({ file, text, url }) {
   if (typeof navigator === "undefined" || typeof navigator.share !== "function") {
     return Promise.reject(new Error("Web Share is not available"));
@@ -136,12 +161,47 @@ function invokeNavigatorShare({ file, text, url }) {
 }
 
 const DEFAULT_FORM = {
-  name: "Isaac Twekyard",
-  location: "Lagos",
+  name: "",
+  location: "",
   link: "",
-  cardDarkMode: true,
+  themeId: DEFAULT_THEME_ID,
+  /**
+   * §7.2 — the user's two choices, and nothing between them.
+   *
+   * `thinking` because §3's accent default before any mood is chosen is its
+   * violet, and the accent follows the mood. Starting anywhere else would mean
+   * the site's first paint disagreed with its own token file.
+   */
+  mood: "thinking",
+  surface: DEFAULT_SURFACE,
+  /**
+   * Empty, deliberately. §9.1 has the visitor type and the Moodscreen build in
+   * real time, so a seeded statement would mean their first keystroke deletes
+   * someone else's sentence. The hero hands the preview a placeholder instead,
+   * which is not the same thing: it is never saved and never exported.
+   */
+  statement: "",
   avatarUrl: null,
 };
+
+/**
+ * What the card reads before anyone has typed a statement.
+ *
+ * It lives here rather than in the hero, and that is the whole point. When the
+ * hero owned it, the preview showed this sentence while the off-screen export
+ * node showed an empty card — the two disagreed, so exporting handed someone a
+ * different image from the one on screen. The fix for that was a disabled
+ * button, which turned "click download" into a silent no-op for anyone who had
+ * not written anything yet.
+ *
+ * Putting it in the props both surfaces read makes them agree by construction,
+ * which is §7's rule, and the export control can then simply always work.
+ *
+ * Still never persisted: `statement` in state stays empty until the visitor
+ * writes one, so their first keystroke starts a sentence rather than deleting
+ * someone else's.
+ */
+export const PLACEHOLDER_STATEMENT = "shipping the thing I promised";
 
 const MoodscreenContext = createContext(null);
 
@@ -150,10 +210,35 @@ export function MoodscreenProvider({ children }) {
 
   const [name, setName] = useState(DEFAULT_FORM.name);
   const [location, setLocation] = useState(DEFAULT_FORM.location);
-  const [moodEntries, setMoodEntries] = useState(DEFAULT_MOOD_ENTRIES);
+  const [mood, setMood] = useState(DEFAULT_FORM.mood);
+  const [statement, setStatement] = useState(DEFAULT_FORM.statement);
   const [link, setLink] = useState(DEFAULT_FORM.link);
-  const [cardDarkMode, setCardDarkMode] = useState(DEFAULT_FORM.cardDarkMode);
+  const [themeId, setThemeId] = useState(DEFAULT_FORM.themeId);
+  const [surface, setSurface] = useState(DEFAULT_FORM.surface);
+
+  /**
+   * The hour the Moodscreen is *of* — §7.4's input, and the timestamp §7.5
+   * prints. Loaded from storage rather than read off the clock, so reopening a
+   * 3am card at noon still shows a 3am card; restamped only when the statement
+   * itself changes, because that is when it becomes a different moment.
+   */
+  const [postedAt, setPostedAt] = useState(() => new Date().toISOString());
+  const keepStampRef = useRef(true);
   const [avatarUrl, setAvatarUrl] = useState(DEFAULT_FORM.avatarUrl);
+
+  /**
+   * The handle being typed into the claim field, before it is claimed.
+   *
+   * It lives in the context rather than inside <ClaimField> because the card
+   * has to show it. §9.1's argument for putting the claim after the editor is
+   * that the work is already done by the time it is asked for — and a field
+   * that writes `moodscreen.live/yourname` on the Moodscreen as you type is
+   * what makes that true rather than merely stated.
+   *
+   * Not persisted here: nothing has been claimed yet. `rememberClaim` stashes
+   * it on submit so it survives the sign-in redirect.
+   */
+  const [draftUsername, setDraftUsername] = useState("");
 
   const [hydrated, setHydrated] = useState(false);
   const hydrateGen = useRef(0);
@@ -161,12 +246,8 @@ export function MoodscreenProvider({ children }) {
   const persistMetaRef = useRef({ created_at: null });
   const lastSuccessfulSaveAtRef = useRef(0);
   const formValueRef = useRef(null);
-  const sharePreparedRef = useRef(null);
-  const shareSnapshotRef = useRef("");
   const [storageNotice, setStorageNotice] = useState(null);
   const storageNoticeTimerRef = useRef(null);
-  const [sharePrimed, setSharePrimed] = useState(false);
-  const [shareHint, setShareHint] = useState(null);
 
   const applyFromObject = useCallback((obj) => {
     if (!obj || typeof obj !== "object") return;
@@ -174,10 +255,17 @@ export function MoodscreenProvider({ children }) {
     setName(n.name !== undefined ? n.name : DEFAULT_FORM.name);
     setLocation(n.location !== undefined ? n.location : DEFAULT_FORM.location);
     setLink(n.link !== undefined ? n.link : DEFAULT_FORM.link);
-    setCardDarkMode(n.cardDarkMode !== false);
+    setThemeId(isThemeId(n.themeId) ? n.themeId : DEFAULT_FORM.themeId);
+    setSurface(isSurfaceId(n.surface) ? n.surface : DEFAULT_FORM.surface);
     setAvatarUrl(n.avatarUrl ?? null);
-    setMoodEntries(normalizeMoodEntries(n.moodEntries));
+    setMood(isMoodId(n.mood) ? n.mood : DEFAULT_FORM.mood);
+    setStatement(clampStatement(n.statement ?? ""));
     if (n.created_at) persistMetaRef.current.created_at = n.created_at;
+
+    /* Hydration is not a new moment, so the stamp that arrives with the data
+     * survives the state change that follows it. */
+    keepStampRef.current = true;
+    setPostedAt(n.updated_at || n.created_at || new Date().toISOString());
   }, []);
 
   /** Load guest / remote when auth or storage epoch changes */
@@ -218,51 +306,85 @@ export function MoodscreenProvider({ children }) {
     };
   }, [sessionReady, user?.id, authVersion, applyFromObject]);
 
+  /**
+   * A changed statement is a new moment; everything else on the form is not.
+   *
+   * The mood deliberately does not restamp either. Changing violet to red is
+   * changing how the same thought is coloured, and §7.4's tint belongs to the
+   * hour the thought was had — restamping on a mood tap would mean scrubbing
+   * the strip at midnight quietly relit a card written that afternoon.
+   */
+  useEffect(() => {
+    if (!hydrated) return;
+    if (keepStampRef.current) {
+      keepStampRef.current = false;
+      return;
+    }
+    setPostedAt(new Date().toISOString());
+  }, [statement, hydrated]);
+
   const formValue = useMemo(
     () => ({
       name,
       location,
-      moodEntries,
+      mood,
+      statement,
       link,
-      cardDarkMode,
+      themeId,
+      surface,
       avatarUrl,
+      /* Carried on the form so a save that did not change the statement writes
+       * the stamp back rather than replacing it with now. */
+      updated_at: postedAt,
     }),
-    [name, location, moodEntries, link, cardDarkMode, avatarUrl],
+    [name, location, mood, statement, link, themeId, surface, avatarUrl, postedAt],
   );
 
   formValueRef.current = formValue;
-
-  useEffect(() => {
-    sharePreparedRef.current = null;
-    shareSnapshotRef.current = "";
-    setSharePrimed(false);
-    setShareHint(null);
-  }, [formValue]);
 
   const handleFormChange = useCallback((patch) => {
     if (!patch) return;
     if (Object.prototype.hasOwnProperty.call(patch, "name")) setName(patch.name);
     if (Object.prototype.hasOwnProperty.call(patch, "location"))
       setLocation(patch.location);
-    if (Object.prototype.hasOwnProperty.call(patch, "moodEntries") && Array.isArray(patch.moodEntries))
-      setMoodEntries(sanitizeMoodEntries(patch.moodEntries));
+    if (Object.prototype.hasOwnProperty.call(patch, "mood") && isMoodId(patch.mood))
+      setMood(patch.mood);
+    if (Object.prototype.hasOwnProperty.call(patch, "statement"))
+      setStatement(clampStatement(patch.statement));
     if (Object.prototype.hasOwnProperty.call(patch, "link")) setLink(patch.link);
-    if (Object.prototype.hasOwnProperty.call(patch, "cardDarkMode"))
-      setCardDarkMode(!!patch.cardDarkMode);
+    if (Object.prototype.hasOwnProperty.call(patch, "themeId") && isThemeId(patch.themeId))
+      setThemeId(patch.themeId);
+    if (Object.prototype.hasOwnProperty.call(patch, "surface") && isSurfaceId(patch.surface))
+      setSurface(patch.surface);
     if (Object.prototype.hasOwnProperty.call(patch, "avatarUrl"))
       setAvatarUrl(patch.avatarUrl);
   }, []);
 
-  /** Debounced persist — guest: localStorage, signed-in: Supabase (+ rate limit, cooldown, fallback) */
+  /**
+   * Debounced persist — guest: localStorage, signed-in: Supabase (+ rate
+   * limit, cooldown, fallback).
+   *
+   * The cooldown **delays** the write; it must never drop it. It used to
+   * return early when the last successful save was under two seconds ago, and
+   * because this effect only runs again when the form changes, that made the
+   * *final* edit of any burst unrecoverable — nothing was left to trigger a
+   * retry. It showed up as an avatar that would not stick, since choosing a
+   * picture tends to be the last thing done and lands a second or so after the
+   * statement that triggered the previous save. It applied to every field.
+   *
+   * So the wait is computed up front instead: the debounce, or whatever is
+   * left of the cooldown, whichever is longer.
+   */
   useEffect(() => {
     if (!hydrated) return;
     let cancelled = false;
+    const sinceSave = Date.now() - lastSuccessfulSaveAtRef.current;
+    const wait = Math.max(PERSIST_DEBOUNCE_MS, PERSIST_COOLDOWN_MS - sinceSave);
     const t = window.setTimeout(() => {
       void (async () => {
         if (cancelled) return;
         const fv = formValueRef.current;
         if (!fv) return;
-        if (Date.now() - lastSuccessfulSaveAtRef.current < 2000) return;
         const rl = canAttemptSave();
         if (!rl.ok) {
           setStorageNotice(rl.message);
@@ -271,7 +393,10 @@ export function MoodscreenProvider({ children }) {
         const meta = { createdAt: persistMetaRef.current.created_at };
         const snapshot = serializeMoodscreenState(fv, meta);
         persistMetaRef.current.created_at = snapshot.created_at;
-        const saveMeta = { createdAt: persistMetaRef.current.created_at };
+        const saveMeta = {
+          createdAt: persistMetaRef.current.created_at,
+          updatedAt: fv.updated_at,
+        };
         try {
           if (user?.id) {
             const { error } = await upsertMoodscreenForUser(user.id, fv, saveMeta);
@@ -292,7 +417,7 @@ export function MoodscreenProvider({ children }) {
           }
         }
       })();
-    }, 700);
+    }, wait);
     return () => {
       cancelled = true;
       window.clearTimeout(t);
@@ -306,12 +431,13 @@ export function MoodscreenProvider({ children }) {
     return () => window.clearTimeout(storageNoticeTimerRef.current);
   }, [storageNotice]);
 
-  /** On sign-out, keep the current card in guest storage immediately */
+  /** On sign-out, keep the current Moodscreen in guest storage immediately */
   useEffect(() => {
     const was = prevUserIdRef.current;
     if (was && !user?.id && hydrated) {
       writeGuestMoodscreen(formValue, {
         createdAt: persistMetaRef.current.created_at,
+        updatedAt: formValue.updated_at,
       });
     }
     prevUserIdRef.current = user?.id;
@@ -319,21 +445,153 @@ export function MoodscreenProvider({ children }) {
 
   const initials = useMemo(() => getInitials(name), [name]);
 
-  const moodRows = useMemo(() => moodRowsFromEntries(moodEntries), [moodEntries]);
+  const username = useMemo(
+    () =>
+      typeof profile?.username === "string" && profile.username.trim()
+        ? profile.username.trim().toLowerCase()
+        : "",
+    [profile?.username],
+  );
+
+  /**
+   * Everything <Moodscreen> needs, and nothing else.
+   *
+   * Every surface reads this — the hero preview, the studio preview and the
+   * two off-screen export nodes — so the placeholder and the draft handle are
+   * applied here and nowhere else. A caller that substituted its own would put
+   * the preview and the exported PNG out of step, which is exactly what §7's
+   * one-component rule exists to make impossible.
+   */
+  const moodscreenProps = useMemo(
+    () => ({
+      mood,
+      statement: statement || PLACEHOLDER_STATEMENT,
+      name: (name || "").trim(),
+      /* A claimed handle wins; until there is one, the card wears whatever is
+       * being typed into the claim field. Neither is faked: with both empty
+       * the lockup reads `moodscreen.live`, which is true. */
+      username: username || draftUsername,
+      avatarUrl: avatarUrl ?? "",
+      themeId,
+      surface,
+      /**
+       * §7.4 — the night tint is derived from the timestamp already being
+       * stored, not from a toggle and not from the clock. A card written at
+       * 3am keeps looking like 3am when it is opened at noon, which is the
+       * whole point of the card being *of a moment*.
+       */
+      at: postedAt,
+    }),
+    [mood, statement, name, username, draftUsername, avatarUrl, themeId, surface, postedAt],
+  );
+
+  /**
+   * §3 — the accent is the mood currently in focus, not a fixed brand colour.
+   *
+   * It lives here rather than in the hero because every surface that shows a
+   * Moodscreen shows it: the logo fill, the primary button, focus rings and
+   * the caret all follow whatever is being edited, and a hero-local effect
+   * would leave /create wearing the default violet while its card was orange.
+   */
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    applyAccent(document.documentElement, accentForMood(mood));
+  }, [mood]);
+
+  /* ------------------------------------------------------ export + share */
 
   const [isExporting, setIsExporting] = useState(false);
   const [copied, setCopied] = useState(false);
   const [downloadError, setDownloadError] = useState(null);
+  const [shareReady, setShareReady] = useState(false);
+
+  /** { key, blob, file, filename } for the current Moodscreen, or null. */
+  const preparedRef = useRef(null);
+
+  const exportKey = useMemo(() => JSON.stringify(moodscreenProps), [moodscreenProps]);
+  const exportKeyRef = useRef(exportKey);
+  exportKeyRef.current = exportKey;
+
+  /**
+   * Pre-render the blob whenever the Moodscreen changes.
+   *
+   * This is what fixes the two-tap share: Web Share has to be called in the
+   * same synchronous turn as the tap, and awaiting a capture spends the
+   * gesture. Doing the work ahead of time means the tap has a File already.
+   */
+  useEffect(() => {
+    if (!hydrated || typeof document === "undefined") return undefined;
+
+    let cancelled = false;
+    setShareReady(false);
+    preparedRef.current = null;
+
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const node = document.getElementById(EXPORT_NODE_ID);
+          if (!node || cancelled) return;
+
+          const theme = getTheme(themeId);
+          await ensureMoodscreenFontsReady(theme);
+          if (cancelled) return;
+
+          const blob = await captureMoodscreenBlob(node, { theme });
+          if (cancelled) return;
+
+          const filename = exportFilename(moodscreenProps.username, name);
+          preparedRef.current = {
+            key: exportKey,
+            blob,
+            filename,
+            file: new File([blob], filename, { type: "image/png" }),
+          };
+          setShareReady(true);
+        } catch (e) {
+          /* Not user-facing: the on-demand path below will retry and report. */
+          console.warn("moodscreen pre-render failed:", e);
+        }
+      })();
+    }, PRERENDER_DEBOUNCE_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [exportKey, hydrated, themeId, moodscreenProps.username, name]);
+
+  /** The blob for right now — the pre-rendered one if it is still current. */
+  const currentPrepared = useCallback(() => {
+    const prep = preparedRef.current;
+    return prep && prep.key === exportKeyRef.current ? prep : null;
+  }, []);
+
+  const captureNow = useCallback(async () => {
+    const node = document.getElementById(EXPORT_NODE_ID);
+    if (!node) throw new Error("The Moodscreen is not ready yet.");
+    const theme = getTheme(formValueRef.current?.themeId);
+    await ensureMoodscreenFontsReady(theme);
+    const blob = await captureMoodscreenBlob(node, { theme });
+    /* The handle the card is wearing, not only a claimed one — a guest who has
+     * typed a name into the claim field gets `moodscreen-isaac.png` rather than
+     * a file named after nobody. */
+    const filename = exportFilename(moodscreenProps.username, formValueRef.current?.name);
+    return { blob, filename };
+  }, [moodscreenProps.username]);
 
   const downloadPng = useCallback(async () => {
     if (isExporting) return;
-    if (typeof document === "undefined" || !document.getElementById("moodscreen-card")) {
-      setDownloadError("Card preview is not ready — open the studio and try again.");
+    setDownloadError(null);
+
+    /* Best case: nothing to await, so even iOS gets a real user gesture. */
+    const prep = currentPrepared();
+    if (prep) {
+      if (isLikelyIOS()) openImageInNewTab(prep.blob);
+      else triggerBrowserDownload(prep.blob, prep.filename);
       return;
     }
+
     setIsExporting(true);
-    setDownloadError(null);
-    /* iOS Safari blocks window.open after await unless we open a tab synchronously with the click. */
     let iosBlankTab = null;
     if (isLikelyIOS()) {
       try {
@@ -343,32 +601,7 @@ export function MoodscreenProvider({ children }) {
       }
     }
     try {
-      if (typeof document !== "undefined" && document.fonts?.ready) {
-        try {
-          await document.fonts.ready;
-        } catch {
-          /* ignore */
-        }
-      }
-      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-      const blob = await captureMoodscreenCardToPngBlob();
-
-      if (!blob || blob.size === 0) {
-        setDownloadError("Could not capture the card (empty image).");
-        return;
-      }
-
-      const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-      const filename = `moodscreen-${ts}.png`;
-
-      if (typeof navigator !== "undefined" && navigator.msSaveOrOpenBlob) {
-        navigator.msSaveOrOpenBlob(blob, filename);
-        if (iosBlankTab && !iosBlankTab.closed) iosBlankTab.close();
-        return;
-      }
-
-      /* iOS Safari often ignores <a download>; show the image in the tab we opened on click. */
+      const { blob, filename } = await captureNow();
       if (isLikelyIOS()) {
         const url = URL.createObjectURL(blob);
         if (iosBlankTab && !iosBlankTab.closed) {
@@ -379,7 +612,6 @@ export function MoodscreenProvider({ children }) {
         }
         return;
       }
-
       if (iosBlankTab && !iosBlankTab.closed) iosBlankTab.close();
       triggerBrowserDownload(blob, filename);
     } catch (e) {
@@ -392,106 +624,78 @@ export function MoodscreenProvider({ children }) {
         }
       }
       const msg = e && typeof e.message === "string" ? e.message : String(e);
-      const short =
-        msg.length > 0 && msg.length < 200
-          ? msg
-          : "Unknown error during export.";
       setDownloadError(
-        short.includes("timed out")
-          ? "Export took too long. Try again, or clear the profile photo and retry."
-          : `Export failed: ${short}`,
+        msg.includes("timed out")
+          ? "That took too long. Try again."
+          : `Export failed: ${msg.length < 160 ? msg : "Unknown error"}`,
       );
     } finally {
       setIsExporting(false);
     }
-  }, [isExporting]);
+  }, [isExporting, currentPrepared, captureNow]);
 
   /**
-   * Two-step share: (1) capture PNG async — user gesture consumed by await.
-   * (2) Second tap calls navigator.share synchronously — satisfies “user gesture” on all browsers.
-   * Payload includes image + text + link (Open Graph previews apply when others share your URL, not the PNG).
+   * One tap. If the pre-rendered file is current — which it is within half a
+   * second of the last edit — navigator.share runs synchronously off the tap
+   * and the sheet opens immediately.
+   *
+   * Where there is no share sheet to open, this saves the file instead of
+   * reporting that there is no share sheet. §1 makes getting the image out the
+   * product; a desktop browser without Web Share is not an error condition,
+   * it is a desktop browser, and "Share failed: Web Share is not available" is
+   * a dead end with an apology attached.
    */
   const sharePng = useCallback(() => {
-    if (isExporting) return;
-    if (typeof document === "undefined" || !document.getElementById("moodscreen-card")) {
-      setDownloadError("Card preview is not ready — open the studio and try again.");
-      return;
-    }
-
-    const fv = formValueRef.current;
-    const snapshot = shareFormSnapshot(fv);
-    const pageUrl = normalizeShareUrl(fv?.link);
-
-    if (sharePreparedRef.current && shareSnapshotRef.current === snapshot) {
-      setDownloadError(null);
-      setShareHint(null);
-      const prep = sharePreparedRef.current;
-      void invokeNavigatorShare(prep)
-        .catch((e) => {
-          if (e && e.name === "AbortError") return;
-          console.warn("moodscreen share:", e);
-          const msg = e && typeof e.message === "string" ? e.message : String(e);
-          setDownloadError(
-            msg.includes("gesture") || msg.includes("user activation")
-              ? "Tap Share again after the image is ready."
-              : `Share failed: ${msg.length < 160 ? msg : "Unknown error"}`,
-          );
-        })
-        .finally(() => {
-          sharePreparedRef.current = null;
-          shareSnapshotRef.current = "";
-          setSharePrimed(false);
-        });
-      return;
-    }
-
-    setIsExporting(true);
     setDownloadError(null);
-    setShareHint(null);
+    const pageUrl = normalizeShareUrl(formValueRef.current?.link);
+    const text = `moodscreen — ${pageUrl}`;
+
+    const prep = currentPrepared();
+    if (prep) {
+      if (!canShareFiles(prep.file)) {
+        void downloadPng();
+        return;
+      }
+      void invokeNavigatorShare({ file: prep.file, text, url: pageUrl }).catch((e) => {
+        if (e && e.name === "AbortError") return;
+        console.warn("moodscreen share:", e);
+        const msg = e && typeof e.message === "string" ? e.message : String(e);
+        setDownloadError(`Share failed: ${msg.length < 160 ? msg : "Unknown error"}`);
+      });
+      return;
+    }
+
+    /* The pre-render has not landed yet — capture, then open the sheet. Some
+     * browsers will refuse this one for want of a gesture; the next tap has
+     * the file and always works. */
+    if (isExporting) return;
+    setIsExporting(true);
     void (async () => {
       try {
-        if (typeof document !== "undefined" && document.fonts?.ready) {
-          try {
-            await document.fonts.ready;
-          } catch {
-            /* ignore */
-          }
-        }
-        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-        const blob = await captureMoodscreenCardToPngBlob();
-        if (!blob || blob.size === 0) {
-          setDownloadError("Could not capture the card (empty image).");
+        const { blob, filename } = await captureNow();
+        const file = new File([blob], filename, { type: "image/png" });
+        preparedRef.current = { key: exportKeyRef.current, blob, file, filename };
+        setShareReady(true);
+        if (!canShareFiles(file)) {
+          if (isLikelyIOS()) openImageInNewTab(blob);
+          else triggerBrowserDownload(blob, filename);
           return;
         }
-
-        const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-        const filename = `moodscreen-${ts}.png`;
-        const file = new File([blob], filename, { type: "image/png" });
-        const text = `moodscreen — ${pageUrl}`;
-
-        sharePreparedRef.current = { file, text, url: pageUrl };
-        shareSnapshotRef.current = snapshot;
-        setSharePrimed(true);
-        setShareHint(
-          "Image ready — tap Share again to open Instagram, Messages, WhatsApp, etc.",
-        );
+        await invokeNavigatorShare({ file, text, url: pageUrl });
       } catch (e) {
-        console.warn("moodscreen PNG share prepare failed:", e);
+        if (e && e.name === "AbortError") return;
+        console.warn("moodscreen share prepare failed:", e);
         const msg = e && typeof e.message === "string" ? e.message : String(e);
         setDownloadError(
-          msg.includes("timed out")
-            ? "Export took too long. Try again, or clear the profile photo and retry."
-            : `Could not prepare share: ${msg.length < 160 ? msg : "Unknown error"}`,
+          msg.includes("gesture") || msg.includes("user activation")
+            ? "Almost ready — tap it once more."
+            : `Could not export: ${msg.length < 160 ? msg : "Unknown error"}`,
         );
-        sharePreparedRef.current = null;
-        shareSnapshotRef.current = "";
-        setSharePrimed(false);
       } finally {
         setIsExporting(false);
       }
     })();
-  }, [isExporting]);
+  }, [isExporting, currentPrepared, captureNow, downloadPng]);
 
   const copyLink = useCallback(async () => {
     setCopied(false);
@@ -506,27 +710,6 @@ export function MoodscreenProvider({ children }) {
     }
   }, [link]);
 
-  const cardProps = useMemo(
-    () => ({
-      name: (name || "Name").trim() || "Name",
-      initials: initials || null,
-      avatar: avatarUrl,
-      location: (location || "").trim(),
-      moodRows,
-      footerText: "",
-      activeWithin48h:
-        user?.id && profile?.last_active
-          ? isActiveWithin48h(profile.last_active)
-          : true,
-      darkMode: cardDarkMode !== false,
-      profileUsername:
-        typeof profile?.username === "string" && profile.username.trim()
-          ? profile.username.trim().toLowerCase()
-          : undefined,
-    }),
-    [name, initials, avatarUrl, location, moodRows, cardDarkMode, user?.id, profile?.last_active, profile?.username],
-  );
-
   const value = useMemo(
     () => ({
       formValue,
@@ -537,11 +720,13 @@ export function MoodscreenProvider({ children }) {
       isExporting,
       copied,
       downloadError,
-      shareHint,
-      sharePrimed,
-      cardProps,
+      shareReady,
+      moodscreenProps,
+      initials,
       storageHydrated: hydrated,
       storageNotice,
+      draftUsername,
+      setDraftUsername,
     }),
     [
       formValue,
@@ -552,16 +737,21 @@ export function MoodscreenProvider({ children }) {
       isExporting,
       copied,
       downloadError,
-      shareHint,
-      sharePrimed,
-      cardProps,
+      shareReady,
+      moodscreenProps,
+      initials,
       hydrated,
       storageNotice,
+      draftUsername,
     ],
   );
 
   return (
-    <MoodscreenContext.Provider value={value}>{children}</MoodscreenContext.Provider>
+    <MoodscreenContext.Provider value={value}>
+      {children}
+      {/* The node every capture photographs. Always mounted, never seen. */}
+      <MoodscreenExportSurface {...moodscreenProps} />
+    </MoodscreenContext.Provider>
   );
 }
 

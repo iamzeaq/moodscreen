@@ -1,37 +1,56 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#08080A" />
     <title>moodscreen</title>
     <meta
       name="description"
-      content="Your status on one screen — share how you feel and what you're on."
+      content="Say what you're on. Post it anywhere. It stays live."
     />
-    <!-- Open Graph / Twitter — set og:url and og:image to your production absolute URLs when you deploy -->
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!--
+      Self-hosted, subset woff2. There is deliberately no Google Fonts link
+      here and there must never be one: html-to-image cannot embed a
+      cross-origin stylesheet, so a CDN face silently becomes Arial in the
+      exported PNG. See src/styles/fonts.css and scripts/build-fonts.mjs.
+    -->
+    <link
+      rel="preload"
+      href="/fonts/Switzer-400.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/Switzer-600.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+
+    <!-- Open Graph / Twitter — per-user images are a server-rendered route, not shipped yet -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="moodscreen — your status on one screen" />
+    <meta property="og:title" content="moodscreen — what are you on right now?" />
     <meta
       property="og:description"
-      content="A calm, screenshot-ready card for your current mood and link."
+      content="Say what you're on. Post it anywhere. It stays live."
     />
     <meta property="og:url" content="https://moodscreen.live/" />
-    <!-- Add og:image (absolute URL to a 1200×630 PNG) when you host a preview image -->
     <meta property="og:site_name" content="moodscreen" />
     <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="moodscreen — your status on one screen" />
+    <meta name="twitter:title" content="moodscreen — what are you on right now?" />
     <meta
       name="twitter:description"
-      content="A calm, screenshot-ready card for your current mood and link."
-    />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Sora:wght@500;600;700&display=swap"
-      rel="stylesheet"
+      content="Say what you're on. Post it anywhere. It stays live."
     />
   </head>
-  <body class="min-h-dvh bg-surface text-primary antialiased">
+  <body class="min-h-dvh bg-canvas text-fg antialiased">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

@@ -84,13 +84,6 @@ export function MicroCornerFrame({ className = "" }) {
   );
 }
 
-/** Centered rule under headings */
-export function MicroSectionRule({ className = "" }) {
-  return (
-    <div className={["ms-micro-rule", className].filter(Boolean).join(" ")} aria-hidden>
-      <span className="ms-micro-rule__dot" />
-      <span className="ms-micro-rule__line" />
-      <span className="ms-micro-rule__dot" />
-    </div>
-  );
-}
+/* MicroSectionRule is gone. A dot-line-dot ornament under a heading is a
+ * horizontal rule with decoration on it, and nothing on this site separates
+ * anything with a straight line any more — see components/brand/ScreenDivider. */
