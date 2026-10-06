@@ -23,7 +23,7 @@
  * expressed as a radius and a row of rounded squares is a row of rounded
  * squares.
  */
-import { useCallback, useMemo, useRef } from "react";
+import { memo, useCallback, useMemo, useRef } from "react";
 import Logo from "../brand/Logo.jsx";
 import { SCREEN_CLIP } from "../brand/ScreenClip.jsx";
 import { MOODS_BY_HUE, MOOD_IDS_BY_HUE, getMood } from "../../lib/moods.js";
@@ -44,7 +44,12 @@ const TRACK_MAX = STOP_MAX * 10 + 6 * 9;
  */
 const RESTING_OPACITY = 0.5;
 
-export default function MoodStrip({
+/**
+ * Memoised: ten clipped stops and two SVG marks, none of which has anything to
+ * do with the statement being typed in the field above it. See the note on the
+ * stable handlers in StatusForm for the other half of this.
+ */
+function MoodStrip({
   value = "thinking",
   onChange = () => {},
   className = "",
@@ -197,3 +202,5 @@ export default function MoodStrip({
     </div>
   );
 }
+
+export default memo(MoodStrip);

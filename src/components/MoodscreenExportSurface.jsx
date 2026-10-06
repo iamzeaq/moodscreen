@@ -15,6 +15,7 @@
  * pre-rendered as the statement changes, which is what makes share a single
  * tap: by the time the user reaches for it, the file already exists.
  */
+import { memo } from "react";
 import Moodscreen, { BASE_SIZE } from "./Moodscreen.jsx";
 
 export const EXPORT_NODE_ID = "moodscreen-export";
@@ -66,7 +67,14 @@ function Backdrop({ id, children }) {
   );
 }
 
-export default function MoodscreenExportSurface({ idPrefix = EXPORT_NODE_ID, ...props }) {
+/**
+ * Memoised, and for the same reason the props it is handed are debounced: these
+ * two cards are the most expensive thing in the tree and the least urgent. Every
+ * unrelated flicker of provider state — a save going from idle to saving, the
+ * share blob becoming ready — used to reconcile both of them. Its props are all
+ * primitives, so a shallow compare is the whole test.
+ */
+function MoodscreenExportSurface({ idPrefix = EXPORT_NODE_ID, ...props }) {
   const ids = nodeIdsFor(idPrefix);
 
   return (
@@ -92,3 +100,5 @@ export default function MoodscreenExportSurface({ idPrefix = EXPORT_NODE_ID, ...
     </div>
   );
 }
+
+export default memo(MoodscreenExportSurface);
