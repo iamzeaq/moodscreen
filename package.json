@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "build:fonts": "node scripts/build-fonts.mjs",
     "build:grain": "node scripts/build-grain.mjs",
-    "check:contrast": "node scripts/check-contrast.mjs"
+    "check:contrast": "node scripts/check-contrast.mjs",
+    "seed:wall": "node scripts/generate-wall-seed.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",

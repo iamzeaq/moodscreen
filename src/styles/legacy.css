@@ -224,30 +224,11 @@
   background-color: var(--canvas);
 }
 
-.generator-panel.generator-zone {
-  position: relative;
-  isolation: isolate;
-  background-color: var(--canvas);
-}
-
-.generator-panel.generator-zone::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  opacity: 0.85;
-  background-image: linear-gradient(var(--line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--line) 1px, transparent 1px);
-  background-size: 52px 52px;
-  mask-image: radial-gradient(ellipse 88% 70% at 50% 32%, black 0%, transparent 70%);
-  -webkit-mask-image: radial-gradient(ellipse 88% 70% at 50% 32%, black 0%, transparent 70%);
-}
-
-.generator-panel-inner {
-  position: relative;
-  z-index: 1;
-}
+/* The studio panel's own rules lived here — its grid ground, its inner
+ * wrapper, and the rim round its preview. §7.10's app view replaced it: one
+ * Moodscreen on the canvas and two actions, with no panel round either. The
+ * `.generator-btn` rules below stay, because OnboardingPage and AuthModal still
+ * use them. */
 
 .generator-btn {
   display: inline-flex;
@@ -297,14 +278,6 @@
 .generator-btn-ghost:hover:not(:disabled) {
   border-color: var(--line-strong);
   color: var(--text);
-}
-
-.generator-preview-rim,
-.generator-preview-rim--light {
-  border-radius: var(--r-lg);
-  padding: var(--s-16);
-  background: var(--raised);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
 }
 
 /* Bento stat figures — Switzer, tabular. */
@@ -374,47 +347,11 @@
   }
 }
 
-/* ============== Horizontal marquee ====================================== */
-
-.moodscreen-marquee-shell {
-  position: relative;
-  overflow: hidden;
-  padding: var(--s-48) 0;
-}
-
-.moodscreen-marquee-track {
-  display: flex;
-  align-items: center;
-  width: max-content;
-  gap: var(--s-24);
-  will-change: transform;
-}
-
-.moodscreen-marquee-track-left {
-  animation: moodscreen-marquee-left linear infinite;
-}
-
-.moodscreen-marquee-track-right {
-  animation: moodscreen-marquee-right linear infinite;
-}
-
-@keyframes moodscreen-marquee-left {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(calc(-50% - var(--s-12)));
-  }
-}
-
-@keyframes moodscreen-marquee-right {
-  from {
-    transform: translateX(calc(-50% - var(--s-12)));
-  }
-  to {
-    transform: translateX(0);
-  }
-}
+/* The horizontal marquee lived here. Its only consumer was HowItLooks, which
+ * session 5 replaced with §9.4's three steps — the wall (§9.3) has its own
+ * scrolling rows in base.css and never used these. Deleted rather than left
+ * standing: this file is on its way out (§11) and dead rules are what make that
+ * removal look risky. */
 
 /* ============== Signup widget =========================================== */
 

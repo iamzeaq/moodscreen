@@ -38,4 +38,9 @@ yarn-error.log*
 
 # Working instruction notes handed to a session. They stay on disk; a future
 # session reading the repo should not mistake them for a spec.
-fix*.md
+#
+# Both patterns are anchored to the repo root on purpose: docs/session-prompts.md
+# IS project content and must keep being tracked, and an unanchored session*.md
+# would match it.
+/fix*.md
+/session*.md

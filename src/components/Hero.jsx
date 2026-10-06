@@ -29,9 +29,21 @@ import SurfaceControl from "./editor/SurfaceControl.jsx";
 import { FaceField } from "./brand/FaceField.jsx";
 import ClaimField from "./ClaimField.jsx";
 import Button from "./ui/Button.jsx";
+import useFittedWidth from "../hooks/useFittedWidth.js";
 import { PLACEHOLDER_STATEMENT, useMoodscreen } from "../context/MoodscreenContext.jsx";
 
-export default function Hero() {
+/** The size the preview wants when the row has room for it. */
+const CARD_MAX = 360;
+
+export default function Hero({
+  /**
+   * The wrapper around the preview, handed up so §6's fourth moment can fly a
+   * copy of it down to the wall. The hero never styles this element itself —
+   * HeroJoin writes to it during the flight, and a re-render here would undo
+   * that if the two shared a node.
+   */
+  cardRef,
+}) {
   const {
     formValue,
     handleFormChange,
@@ -41,6 +53,8 @@ export default function Hero() {
     isExporting,
     downloadError,
   } = useMoodscreen();
+
+  const [fitRef, cardWidth] = useFittedWidth(CARD_MAX);
 
   return (
     <section
@@ -66,14 +80,29 @@ export default function Hero() {
           * and stacked on a phone with the card first — seeing the thing you
           * are making is what makes typing into it feel like making. */}
         <div className="mt-12 flex w-full flex-col items-center gap-10 lg:mt-16 lg:flex-row lg:items-center lg:justify-center lg:gap-16">
-          <div className="order-1 shrink-0 lg:order-2">
+          {/* Two refs on one node: HeroJoin flies this box down to the wall,
+            * and useFittedWidth measures it. Composed rather than nested,
+            * because an inner wrapper would be a second box for the flight to
+            * disagree with. */}
+          <div
+            ref={(node) => {
+              cardRef.current = node;
+              fitRef(node);
+            }}
+            /* Not `shrink-0` any more: the point is that this box is allowed
+              * to be narrower than 360, and the drawn card follows it. */
+            className="order-1 w-full lg:order-2"
+            style={{ maxWidth: CARD_MAX }}
+          >
             {/* Exactly the props the export nodes get — no local
               * substitutions. That is what makes the saved PNG the image on
               * screen rather than a near-miss of it. */}
             <Moodscreen
               {...moodscreenProps}
-              width={360}
-              className="max-w-full"
+              /* Measured, not fixed at 360. `max-w-full` capped the box and
+                * not the drawn card, so on a 360px phone the right edge of
+                * the screen was sliced off by the section's overflow. */
+              width={cardWidth}
               /* Held back for the one frame before localStorage is read, so a
                * returning visitor never sees the default card flash past the
                * one they made. */

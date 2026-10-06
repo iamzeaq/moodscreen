@@ -127,6 +127,69 @@ body {
 }
 
 /**
+ * The wall (CLAUDE.md §9, section 3).
+ *
+ * "Two rows of real public Moodscreens scrolling opposite directions,
+ * `mask-image` fading both ends."
+ *
+ * The track holds exactly two copies of its tiles and travels -50%, so the
+ * second copy is under the cursor at the moment the first runs out and the loop
+ * has no seam. Transform only, and no `will-change`: the track is thousands of
+ * pixels wide and promoting the whole thing up front costs more texture memory
+ * than a mid-range Android has to spare, where animating the transform gets it
+ * promoted for the part actually on screen.
+ *
+ * The duration is per row, off the tile count, so speed stays constant whether
+ * the wall is holding thirty Moodscreens or three hundred. It is deliberately
+ * far outside §6's four durations, on the same grounds as the hero's face
+ * drift: those four are for things a tap or a hover causes, and this is ambient.
+ */
+.wall-row {
+  /* Here rather than as a utility class, so the reduced-motion block below can
+   * turn it into a scroller without fighting Tailwind on specificity. */
+  overflow: hidden;
+
+  /* Fade rather than clip, both ends. */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 9%,
+    #000 91%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(to right, transparent 0, #000 9%, #000 91%, transparent 100%);
+}
+
+.wall-track {
+  display: flex;
+  width: max-content;
+  animation: wall-scroll var(--wall-duration, 200s) linear infinite;
+}
+
+.wall-track[data-direction="reverse"] {
+  animation-direction: reverse;
+}
+
+/**
+ * Every tile is a link, and a link you have to catch is not a link. Hover pauses
+ * the row it is over; focus-within pauses it for the keyboard, which otherwise
+ * tabs into a target that is still moving.
+ */
+.wall-row:hover .wall-track,
+.wall-row:focus-within .wall-track {
+  animation-play-state: paused;
+}
+
+@keyframes wall-scroll {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+/**
  * Motion budget (CLAUDE.md §6).
  *
  * Under reduced motion the mood cross-fade and the digit roll survive as
@@ -152,5 +215,23 @@ body {
    * scatter renders exactly as authored. */
   .face-drift {
     animation: none !important;
+  }
+
+  /* Same failure, worse consequence: parked at its end state the wall's track
+   * sits half a copy to the left, so both rows open mid-tile. Stopped at the
+   * start and made scrollable instead, the wall becomes something you push
+   * through by hand — which is the honest reduced-motion version of a marquee,
+   * rather than a still of one. */
+  .wall-track {
+    animation: none !important;
+  }
+
+  .wall-row {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .wall-row::-webkit-scrollbar {
+    display: none;
   }
 }

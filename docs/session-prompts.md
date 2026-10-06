@@ -25,8 +25,8 @@ Work happens on `redesign`.
 | 2 — The Moodscreen renderer | done, `bde899c` |
 | 2b — Renderer rework for the new §7 | done |
 | 3 — Hero | done |
-| 4 — Pulse and wall | next |
-| 5 — Remaining sections and the public page | ahead |
+| 4 — Pulse and wall | done |
+| 5 — Remaining sections and the public page | done |
 
 §7 was rewritten after session 2 shipped (`d087307`). Sessions 1 and 2 are
 history and are recorded below as what was built, not as work to do. The gap
@@ -185,6 +185,39 @@ particular is cut back to the shape §9.2's pulse will fill.
 Check: wall scrolls smoothly on a mid-range Android, edges fade rather than
 clip, reduced-motion disables the scroll effect.
 
+**Shipped**, with four decisions the prompt above does not settle:
+
+1. **No freshness rule yet.** The wall shows the most recent public Moodscreens
+   with no expiry, and the pulse counts every Moodscreen rather than only recent
+   ones. What makes one stale is an open product question; it is deliberately
+   not guessed at. When it is settled it lands in two constants —
+   `WALL_WINDOW_HOURS` and `PULSE_WINDOW_HOURS` in `wallService.js`, and the
+   `window_hours` argument `pulse_by_mood` already takes — and no query shape
+   moves.
+2. **The pulse is built but will not draw yet.** §9's 200 threshold is real and
+   seeds are not counted towards it — padding the number with examples to clear
+   the bar that exists to stop a small number being advertised would be
+   advertising a false one. So the section is dead until there are 200 real
+   Moodscreens, which is correct and worth knowing.
+3. **`wall_public` is a new column on `profiles`, separate from the username.**
+   Claiming a page publishes that page; appearing on the front page is a second
+   ask. The old policy gating public reads on `username IS NOT NULL` is
+   unchanged, so the public profile still works exactly as before.
+4. **Seeds are their own table.** `moodscreens.user_id` is a foreign key to
+   `auth.users`, so seeding it would have meant thirty fabricated accounts.
+   `src/lib/wallSeeds.js` is the authored source, `supabase/seed-wall.sql` is
+   generated from it by `npm run seed:wall`, and the app falls back to the JS
+   list when Supabase is not configured — which is how the wall draws in local
+   development at all. `PublicProfilePage` serves seed pages from the same list
+   so no tile on the wall links into a dead end. Drop the table when real
+   Moodscreens fill the rows.
+
+Also here: `WallOptIn` on `/create`, since a flag nobody can set is not opt-in,
+it is off. It is placed outside `GeneratorPanel` so §7.10's app view can take it
+whole. `ColorEnergySection` is gone. `LandingPage` now builds its section list
+at render time, because §9.7's alternating dividers cannot be written by hand
+once two sections hide themselves.
+
 ---
 
 ## Session 5 — Remaining sections and the public page
@@ -207,6 +240,55 @@ clip, reduced-motion disables the scroll effect.
 
 Check: read the whole page top to bottom on a phone. Anything that could have
 come from a one-line prompt gets revised.
+
+**Shipped**, with five decisions the prompt above does not settle:
+
+1. **The public page keeps location, and drops everything else.** The build
+   order was the session's own brief: avatar, name and handle small at the top;
+   the Moodscreen large; `updated N minutes ago` with the live dot directly
+   under it; the one optional link; a quiet "Make your own Moodscreen" last.
+   Location is not in that list but §7.10 names it, so it sits with the identity
+   block as a third small line rather than being dropped or promoted.
+2. **The single query is a view, not a client-side join.** `moodscreens` has no
+   foreign key to `profiles` — both point at `auth.users` — so PostgREST cannot
+   embed one in the other and no amount of client work makes it one request.
+   `public_moodscreens` in `schema.sql` does the join, exactly as session 4's
+   `wall_moodscreens` already did for the wall. It is a LEFT JOIN: claiming a
+   page and writing a Moodscreen are two acts, and an inner join would answer
+   "this page doesn't exist" to someone who claimed it a minute ago.
+3. **`useFittedWidth` exists because §7's `width` is not a CSS width.** It is
+   the number the transform's scale is computed from, so `max-w-full` caps the
+   box and lets the drawn card run past it. That was already true of the hero at
+   360 (clipped by the section's `overflow-hidden` on a 360px phone) and would
+   have been a sideways-scrolling page on the two new views. The hook measures
+   the column and the card follows; the hero, the app and the public page all
+   use it.
+4. **The themes scroller shows real seeds, not specimens.** §9.5 asks for "real
+   Moodscreens in each theme", and §9.3's seed list already carries one of every
+   free theme because its mood, surface and theme cycles are run against each
+   other. So the section is a lookup over `WALL_SEEDS`, not a new fixture, and
+   each tile is exactly what that seed's own page renders. The cost is that the
+   five statements differ, which isolates the typeface less cleanly than five
+   identical sentences would — the label under each tile carries that instead.
+5. **`GeneratorPanel` is gone, not hidden behind a flag.** §7.10's app view is
+   one Moodscreen and two actions, so the studio's two-column layout had nowhere
+   to be. The editor is not deleted — `StatusForm` is intact behind "Change it",
+   with every field it had including the single link. Copy link and Save the
+   image went with it: `sharePng` already opens the share sheet where there is
+   one and saves the file where there is not, so one button is the whole of
+   "get this out of here" and two would be how a view ends up with four.
+
+The vocabulary audit found the word "card" only in code — Tailwind's `bg-card`,
+`--app-card`, element ids, comments — which §2 permits. What it did find was the
+banned phrase itself: `SignupWidget` shipped `"create yours"` as the nav label on
+every page. Also fixed: "Open studio →" (§12's appended arrow, plus a word §2
+does not have), "Save your moodscreen" lowercase in the auth modal, and
+onboarding's "Finish setup" / "Status" / "What you're up to". Onboarding's
+username field also took §10's `moodscreen.live/` prefix in place of a bare `/`.
+
+`/kitchen-sink` still says "card" in its notes and is left alone deliberately: it
+is an internal reference that quotes CLAUDE.md's own reasoning, and it is not
+linked from anything a user reads.
 
 ---
 
