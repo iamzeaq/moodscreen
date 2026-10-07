@@ -197,12 +197,31 @@ export async function upsertMoodscreenForUser(userId, state, meta = {}) {
 }
 
 /**
- * After login: push guest localStorage to Supabase, then clear local guest keys.
+ * After login: adopt the guest Moodscreen into the account, but only into an
+ * account that has none.
+ *
+ * It used to upsert unconditionally, so signing in wrote whatever this browser
+ * held locally over the account's row — an April guest draft with no statement
+ * replaced a Moodscreen made that day, and the page then loaded the draft back
+ * as if it were the user's. The row is the account's; the guest copy is only
+ * ever a candidate for an empty one. When the account already has a
+ * Moodscreen the row wins and the local copy is dropped, so it cannot be
+ * pushed on some later sign-in instead.
+ *
+ * If the row cannot be read, nothing is written and the guest copy is kept:
+ * not knowing whether the account has a Moodscreen is not permission to
+ * replace it.
  */
 export async function migrateGuestStorageToUser(userId) {
   if (!userId) return { migrated: false, error: null };
   const guest = readGuestMoodscreen();
   if (!guest) {
+    return { migrated: false, error: null };
+  }
+  const { data: existing, error: readError } = await fetchMoodscreenForUser(userId);
+  if (readError) return { migrated: false, error: readError };
+  if (existing) {
+    clearGuestMoodscreen();
     return { migrated: false, error: null };
   }
   const createdAt =
