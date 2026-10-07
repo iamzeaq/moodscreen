@@ -203,6 +203,9 @@ const DEFAULT_FORM = {
  */
 export const PLACEHOLDER_STATEMENT = "shipping the thing I promised";
 
+/** `hydratedFor` when the form holds this browser's guest Moodscreen. */
+const GUEST_KEY = "guest";
+
 const MoodscreenContext = createContext(null);
 
 export function MoodscreenProvider({ children }) {
@@ -240,7 +243,19 @@ export function MoodscreenProvider({ children }) {
    */
   const [draftUsername, setDraftUsername] = useState("");
 
-  const [hydrated, setHydrated] = useState(false);
+  /**
+   * Whose Moodscreen the form currently holds: a user id, or GUEST_KEY.
+   *
+   * A boolean was not enough. It stayed true across a sign-in, so in the render
+   * where the user changed, the persist effect saw a new user and a "hydrated"
+   * form — and wrote the guest's form to the account's row 700ms later, while
+   * the account's own Moodscreen was still being fetched. Keying hydration to
+   * the identity makes it false in that same render, and it only comes back
+   * once the account's data has been loaded into the form.
+   */
+  const [hydratedFor, setHydratedFor] = useState(null);
+  const currentKey = user?.id ?? GUEST_KEY;
+  const hydrated = hydratedFor === currentKey;
   const hydrateGen = useRef(0);
   const prevUserIdRef = useRef(undefined);
   const persistMetaRef = useRef({ created_at: null });
@@ -277,8 +292,17 @@ export function MoodscreenProvider({ children }) {
 
     (async () => {
       if (user?.id) {
-        const { data } = await fetchMoodscreenForUser(user.id);
+        const { data, error } = await fetchMoodscreenForUser(user.id);
         if (cancelled || hydrateGen.current !== gen) return;
+        if (error) {
+          /* Unknown is not empty. Falling back to the guest copy here and then
+           * saving it would replace a Moodscreen we simply failed to read, so
+           * the form stays unhydrated for this account and nothing is written
+           * until a later load succeeds. */
+          console.warn("moodscreen load failed:", error);
+          setStorageNotice("Couldn't load your Moodscreen. Reload to try again.");
+          return;
+        }
         if (data && typeof data === "object") {
           applyFromObject(data);
         } else {
@@ -298,7 +322,7 @@ export function MoodscreenProvider({ children }) {
           applyFromObject({});
         }
       }
-      if (!cancelled && hydrateGen.current === gen) setHydrated(true);
+      if (!cancelled && hydrateGen.current === gen) setHydratedFor(user?.id ?? GUEST_KEY);
     })();
 
     return () => {
@@ -431,17 +455,23 @@ export function MoodscreenProvider({ children }) {
     return () => window.clearTimeout(storageNoticeTimerRef.current);
   }, [storageNotice]);
 
-  /** On sign-out, keep the current Moodscreen in guest storage immediately */
+  /**
+   * On sign-out, keep the current Moodscreen in guest storage immediately.
+   *
+   * Checked against the account that just left rather than `hydrated`, which in
+   * this render already describes the guest and is false until guest storage
+   * has been read.
+   */
   useEffect(() => {
     const was = prevUserIdRef.current;
-    if (was && !user?.id && hydrated) {
+    if (was && !user?.id && hydratedFor === was) {
       writeGuestMoodscreen(formValue, {
         createdAt: persistMetaRef.current.created_at,
         updatedAt: formValue.updated_at,
       });
     }
     prevUserIdRef.current = user?.id;
-  }, [user?.id, hydrated, formValue]);
+  }, [user?.id, hydratedFor, formValue]);
 
   const initials = useMemo(() => getInitials(name), [name]);
 
