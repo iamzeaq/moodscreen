@@ -144,11 +144,75 @@ export function writeGuestMoodscreen(state, meta = {}) {
   }
 }
 
+/**
+ * Marks the guest copy as a write that never reached the server.
+ *
+ * A signed-in user's writes are debounced, spaced by the cooldown and queued
+ * behind the rate limit, so at any moment there can be an edit that exists only
+ * in memory — and under sustained editing the queue reaches the better part of
+ * a minute. Close the tab in that window and it was simply gone.
+ *
+ * The rescue is a synchronous localStorage write, because that is the only kind
+ * that reliably completes while a page is going away. It reuses the guest key
+ * rather than taking a second copy of the payload: the guest record is already
+ * this browser's local copy of the Moodscreen, and the sign-out snapshot and the
+ * sync-failure fallback both write to it for the same reason.
+ *
+ * What it cannot do is say *which* record is newer, since `updated_at` is the
+ * hour the Moodscreen is of (§7.4) and does not move when the mood, the theme
+ * or the photo changes. So the fact that this copy is ahead of the server is
+ * recorded here, beside it, as the user it belongs to — and the loader prefers
+ * the local record only when this says so, never on a guess about timestamps.
+ */
+const PENDING_UPLOAD_KEY = "moodscreen_pending_upload";
+
+export function markPendingUpload(userId) {
+  if (typeof window === "undefined" || !userId) return;
+  try {
+    window.localStorage.setItem(PENDING_UPLOAD_KEY, String(userId));
+  } catch {
+    /* quota / private mode */
+  }
+}
+
+/**
+ * Which user's unsent edit the guest record holds, or null when it holds none.
+ *
+ * While this is set the guest record is not a guest's at all — it is one
+ * account's Moodscreen waiting to go up — so it must never be adopted into a
+ * different account.
+ */
+export function pendingUploadOwner() {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(PENDING_UPLOAD_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** Whether the guest record is an unsent edit belonging to this user. */
+export function hasPendingUpload(userId) {
+  if (!userId) return false;
+  return pendingUploadOwner() === String(userId);
+}
+
+export function clearPendingUpload() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(PENDING_UPLOAD_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 export function clearGuestMoodscreen() {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.removeItem(MOODSCREEN_DATA_KEY);
     window.localStorage.removeItem(LEGACY_GUEST_STORAGE_KEY);
+    /* The marker points at the record being removed; it must not outlive it. */
+    window.localStorage.removeItem(PENDING_UPLOAD_KEY);
   } catch {
     // ignore
   }
@@ -211,9 +275,16 @@ export async function upsertMoodscreenForUser(userId, state, meta = {}) {
  * If the row cannot be read, nothing is written and the guest copy is kept:
  * not knowing whether the account has a Moodscreen is not permission to
  * replace it.
+ *
+ * A record marked as an unsent edit is left alone entirely. If it is this
+ * user's, it is newer than the row and the loader applies it and lets the
+ * persist effect send it; dropping it here because the row exists would throw
+ * away exactly the edit the marker was written to save. If it is another
+ * user's, it is their Moodscreen and must not land in this account.
  */
 export async function migrateGuestStorageToUser(userId) {
   if (!userId) return { migrated: false, error: null };
+  if (pendingUploadOwner()) return { migrated: false, error: null };
   const guest = readGuestMoodscreen();
   if (!guest) {
     return { migrated: false, error: null };

@@ -7,12 +7,17 @@ import {
   useRef,
   useState,
 } from "react";
+import { flushSync } from "react-dom";
 import { useAuth } from "./AuthContext.jsx";
 import MoodscreenExportSurface, {
   EXPORT_NODE_ID,
 } from "../components/MoodscreenExportSurface.jsx";
 import {
+  clearPendingUpload,
   fetchMoodscreenForUser,
+  hasPendingUpload,
+  markPendingUpload,
+  pendingUploadOwner,
   readGuestMoodscreen,
   serializeMoodscreenState,
   upsertMoodscreenForUser,
@@ -20,8 +25,8 @@ import {
 } from "../services/moodscreenDataService.js";
 import { normalizeStoredMoodscreen } from "../lib/moodscreenPayload.js";
 import {
-  canAttemptSave,
   recordSuccessfulSave,
+  saveRateLimitWaitMs,
 } from "../lib/moodscreenRateLimit.js";
 import { accentForMood, isMoodId } from "../lib/moods.js";
 import { applyAccent } from "../lib/color.js";
@@ -46,6 +51,20 @@ const PERSIST_DEBOUNCE_MS = 700;
  * and not a reason to lose an edit: see the persist effect.
  */
 const PERSIST_COOLDOWN_MS = 2000;
+
+/**
+ * How long a pending write has to be outstanding before it says so.
+ *
+ * Every burst of typing schedules one, so announcing them all would put
+ * "Saving" under the buttons on every keystroke — noise, and the kind that
+ * teaches people to stop reading the line. Past a second or so the silence is
+ * the thing that needs explaining instead, which is exactly the case the rate
+ * limiter's delay produces.
+ */
+const SAVING_VISIBLE_AFTER_MS = 1200;
+
+/** How long "Saved" stays up. Long enough to catch, short enough to forget. */
+const SAVED_VISIBLE_MS = 2400;
 
 /** Touch / mobile browsers need longer before revoke or the save dialog never receives the blob. */
 function downloadRevokeDelayMs() {
@@ -226,7 +245,6 @@ export function MoodscreenProvider({ children }) {
    * itself changes, because that is when it becomes a different moment.
    */
   const [postedAt, setPostedAt] = useState(() => new Date().toISOString());
-  const keepStampRef = useRef(true);
   const [avatarUrl, setAvatarUrl] = useState(DEFAULT_FORM.avatarUrl);
 
   /**
@@ -260,9 +278,19 @@ export function MoodscreenProvider({ children }) {
   const prevUserIdRef = useRef(undefined);
   const persistMetaRef = useRef({ created_at: null });
   const lastSuccessfulSaveAtRef = useRef(0);
+  /** True from the moment an edit is scheduled until it reaches storage. */
+  const pendingWriteRef = useRef(false);
   const formValueRef = useRef(null);
   const [storageNotice, setStorageNotice] = useState(null);
   const storageNoticeTimerRef = useRef(null);
+
+  /**
+   * 'idle' | 'saving' | 'saved' — the quiet half of telling someone their edit
+   * stuck. `storageNotice` is the loud half and only ever speaks on failure,
+   * which left a successful save completely silent: nothing on screen ever said
+   * a change had persisted, and the only signal was the absence of an error.
+   */
+  const [saveState, setSaveState] = useState("idle");
 
   const applyFromObject = useCallback((obj) => {
     if (!obj || typeof obj !== "object") return;
@@ -277,9 +305,9 @@ export function MoodscreenProvider({ children }) {
     setStatement(clampStatement(n.statement ?? ""));
     if (n.created_at) persistMetaRef.current.created_at = n.created_at;
 
-    /* Hydration is not a new moment, so the stamp that arrives with the data
-     * survives the state change that follows it. */
-    keepStampRef.current = true;
+    /* Hydration is not a new moment: the stamp that arrives with the data is
+     * the one the card keeps. Nothing has to defend that any more — the restamp
+     * lives in handleFormChange, which hydration does not go through. */
     setPostedAt(n.updated_at || n.created_at || new Date().toISOString());
   }, []);
 
@@ -292,9 +320,33 @@ export function MoodscreenProvider({ children }) {
 
     (async () => {
       if (user?.id) {
+        /**
+         * An edit that the last session never got to the server outranks the
+         * row, and it is the only thing that does.
+         *
+         * Not decided by comparing timestamps: `updated_at` is the hour the
+         * Moodscreen is *of* (§7.4) and does not move when the mood, the theme
+         * or the photo changes, so a newer local record is routinely stamped the
+         * same as the older remote one. The unload flush says outright that it
+         * left one behind, and that claim is what is read here.
+         *
+         * The marker is cleared once the state is applied, because from that
+         * point the persist effect owns it — hydrating is itself a form change,
+         * so the rescued edit is on its way up within the debounce.
+         */
+        const wasPending = hasPendingUpload(user.id);
+        const rescued = wasPending ? readGuestMoodscreen() : null;
         const { data, error } = await fetchMoodscreenForUser(user.id);
         if (cancelled || hydrateGen.current !== gen) return;
-        if (error) {
+        /* Cleared on the strength of having looked, not of having found
+         * something — a marker whose record has since been cleared out of
+         * storage would otherwise sit there being checked forever. */
+        if (wasPending) clearPendingUpload();
+        if (rescued && typeof rescued === "object") {
+          /* The rescued edit is this account's newest state whether or not the
+           * row could be read, so a failed fetch does not stand in its way. */
+          applyFromObject(rescued);
+        } else if (error) {
           /* Unknown is not empty. Falling back to the guest copy here and then
            * saving it would replace a Moodscreen we simply failed to read, so
            * the form stays unhydrated for this account and nothing is written
@@ -302,11 +354,13 @@ export function MoodscreenProvider({ children }) {
           console.warn("moodscreen load failed:", error);
           setStorageNotice("Couldn't load your Moodscreen. Reload to try again.");
           return;
-        }
-        if (data && typeof data === "object") {
+        } else if (data && typeof data === "object") {
           applyFromObject(data);
         } else {
-          const guest = readGuestMoodscreen();
+          /* An account with no Moodscreen takes the guest copy — unless that
+           * copy is another account's unsent edit, which is theirs to keep. */
+          const owner = pendingUploadOwner();
+          const guest = owner && owner !== String(user.id) ? null : readGuestMoodscreen();
           if (guest && typeof guest === "object") {
             applyFromObject(guest);
           } else {
@@ -329,23 +383,6 @@ export function MoodscreenProvider({ children }) {
       cancelled = true;
     };
   }, [sessionReady, user?.id, authVersion, applyFromObject]);
-
-  /**
-   * A changed statement is a new moment; everything else on the form is not.
-   *
-   * The mood deliberately does not restamp either. Changing violet to red is
-   * changing how the same thought is coloured, and §7.4's tint belongs to the
-   * hour the thought was had — restamping on a mood tap would mean scrubbing
-   * the strip at midnight quietly relit a card written that afternoon.
-   */
-  useEffect(() => {
-    if (!hydrated) return;
-    if (keepStampRef.current) {
-      keepStampRef.current = false;
-      return;
-    }
-    setPostedAt(new Date().toISOString());
-  }, [statement, hydrated]);
 
   const formValue = useMemo(
     () => ({
@@ -373,8 +410,28 @@ export function MoodscreenProvider({ children }) {
       setLocation(patch.location);
     if (Object.prototype.hasOwnProperty.call(patch, "mood") && isMoodId(patch.mood))
       setMood(patch.mood);
-    if (Object.prototype.hasOwnProperty.call(patch, "statement"))
-      setStatement(clampStatement(patch.statement));
+    if (Object.prototype.hasOwnProperty.call(patch, "statement")) {
+      const next = clampStatement(patch.statement);
+      /**
+       * A changed statement is a new moment; everything else on the form is
+       * not. The mood deliberately does not restamp either — changing violet to
+       * red is changing how the same thought is coloured, and §7.4's tint
+       * belongs to the hour the thought was had, so scrubbing the strip at
+       * midnight must not quietly relight a card written that afternoon.
+       *
+       * The stamp is taken *here*, in the same event as the edit, and that is a
+       * performance decision as much as a modelling one. It used to be an
+       * effect keyed on `statement`, which meant every keystroke rendered the
+       * whole tree twice: once for the letter, then again for the stamp the
+       * effect set afterwards. Everything downstream paid for both — the card,
+       * both export twins, the persist effect and the pre-render debounce all
+       * ran two passes per character. Batched into one update they run once.
+       */
+      if (next !== formValueRef.current?.statement) {
+        setStatement(next);
+        setPostedAt(new Date().toISOString());
+      }
+    }
     if (Object.prototype.hasOwnProperty.call(patch, "link")) setLink(patch.link);
     if (Object.prototype.hasOwnProperty.call(patch, "themeId") && isThemeId(patch.themeId))
       setThemeId(patch.themeId);
@@ -396,24 +453,60 @@ export function MoodscreenProvider({ children }) {
    * picture tends to be the last thing done and lands a second or so after the
    * statement that triggered the previous save. It applied to every field.
    *
-   * So the wait is computed up front instead: the debounce, or whatever is
-   * left of the cooldown, whichever is longer.
+   * So the wait is computed up front instead: the debounce, whatever is left of
+   * the cooldown, or whatever is left of the rate limit's window — whichever is
+   * longest.
+   *
+   * The rate limiter used to be checked *inside* the timeout and return early
+   * when it refused, which is the same bug the cooldown had and loses an edit in
+   * the same way. It was easier to hit than the cooldown ever was: five writes a
+   * minute, and since the cooldown already spaces them two seconds apart, five
+   * ordinary actions — statement, mood, surface, theme, name — reach the limit
+   * in half a minute of normal editing. The sixth was refused, the effect only
+   * runs again on a form change, and someone who had just finished editing had
+   * no further change left to trigger a retry.
+   *
+   * So the limiter now answers with a wait rather than a yes or no, and the
+   * write is delayed into the next free slot. Nothing is dropped, and the
+   * throttle still does its job — the round-trip is what it exists to space out,
+   * and a deferred round-trip is spaced out.
+   *
+   * Which is also the reason neither guard applies to a guest. Both exist to
+   * space out *round-trips*, and a guest write is `localStorage.setItem` — no
+   * server, no network, nothing on the other end to be polite to. Applying them
+   * anyway pushed a guest's local save out by the better part of a minute under
+   * sustained editing, bought nothing, and left a long window in which closing
+   * the tab lost the edit. §1 is guest-first; the guest path takes the debounce
+   * and nothing else, and its writes do not spend the server's five-a-minute
+   * either, since they never reach it.
    */
   useEffect(() => {
     if (!hydrated) return;
     let cancelled = false;
+    const signedIn = Boolean(user?.id);
     const sinceSave = Date.now() - lastSuccessfulSaveAtRef.current;
-    const wait = Math.max(PERSIST_DEBOUNCE_MS, PERSIST_COOLDOWN_MS - sinceSave);
+    const wait = signedIn
+      ? Math.max(
+          PERSIST_DEBOUNCE_MS,
+          PERSIST_COOLDOWN_MS - sinceSave,
+          saveRateLimitWaitMs(),
+        )
+      : PERSIST_DEBOUNCE_MS;
+
+    /* Something is now owed to storage, and stays owed until it lands. The
+     * unload flush below is what collects on it. */
+    pendingWriteRef.current = true;
+
+    /* Only a wait long enough to read as nothing happening gets announced. */
+    const announce = window.setTimeout(() => {
+      if (!cancelled) setSaveState("saving");
+    }, SAVING_VISIBLE_AFTER_MS);
+
     const t = window.setTimeout(() => {
       void (async () => {
         if (cancelled) return;
         const fv = formValueRef.current;
         if (!fv) return;
-        const rl = canAttemptSave();
-        if (!rl.ok) {
-          setStorageNotice(rl.message);
-          return;
-        }
         const meta = { createdAt: persistMetaRef.current.created_at };
         const snapshot = serializeMoodscreenState(fv, meta);
         persistMetaRef.current.created_at = snapshot.created_at;
@@ -422,19 +515,35 @@ export function MoodscreenProvider({ children }) {
           updatedAt: fv.updated_at,
         };
         try {
-          if (user?.id) {
+          if (signedIn) {
             const { error } = await upsertMoodscreenForUser(user.id, fv, saveMeta);
             if (error) throw error;
+            /* Only server writes count against the window, and only they need
+             * spacing from the next one. */
+            recordSuccessfulSave();
+            lastSuccessfulSaveAtRef.current = Date.now();
+            /* The row is current again, so the local copy is no longer ahead
+             * of it. */
+            clearPendingUpload();
           } else {
             writeGuestMoodscreen(fv, saveMeta);
           }
-          recordSuccessfulSave();
-          lastSuccessfulSaveAtRef.current = Date.now();
+          pendingWriteRef.current = false;
           setStorageNotice(null);
+          setSaveState("saved");
         } catch (e) {
           console.warn("moodscreen persist failed:", e);
+          /* The notice carries the failure, so the quiet line stands down
+           * rather than showing two messages about one write. */
+          setSaveState("idle");
           try {
             writeGuestMoodscreen(fv, saveMeta);
+            /* Local now holds an edit the row does not, which is the same
+             * situation the unload flush leaves behind and wants the same
+             * marker — otherwise the next load reads the stale row over it and
+             * "Saved locally" turns out to have been a lie by morning. */
+            if (signedIn) markPendingUpload(user.id);
+            pendingWriteRef.current = false;
             setStorageNotice("Saved locally — sync failed");
           } catch {
             setStorageNotice("Could not save — try again");
@@ -445,8 +554,79 @@ export function MoodscreenProvider({ children }) {
     return () => {
       cancelled = true;
       window.clearTimeout(t);
+      window.clearTimeout(announce);
     };
   }, [formValue, user?.id, hydrated]);
+
+  /**
+   * The write that is still owed when the page goes away.
+   *
+   * §11 says a cooldown may delay a write and must never drop one, and that
+   * held for the timer — every burst kept a pending timeout, so nothing was lost
+   * to a later keystroke. It did not hold for the tab. A signed-in user's write
+   * can be queued the better part of a minute behind the rate limit, and until
+   * now closing the tab inside that window dropped the edit exactly as surely as
+   * the early `return` this replaced.
+   *
+   * Two events, because neither is enough alone. `pagehide` is the one that
+   * fires on a real navigation away and on going into the back/forward cache;
+   * `visibilitychange` is the one that fires when a phone backgrounds the tab,
+   * which is where most of these sessions actually end — often with no unload
+   * event ever arriving. `beforeunload` is deliberately not here: it adds a
+   * third path that fires in a subset of the same cases and, on some browsers,
+   * costs the page its bfcache entry to do it.
+   *
+   * The rescue is a synchronous localStorage write and nothing else. An unload
+   * is not a place to start a round-trip and it is not a place to await one, so
+   * a signed-in user's edit lands locally and is marked as ahead of the server;
+   * the loader picks it up next time and the persist effect pushes it up. Which
+   * makes this the offline-first answer to a browser crash and a lost connection
+   * as well, not only to a closed tab.
+   */
+  useEffect(() => {
+    if (!hydrated || typeof document === "undefined") return undefined;
+
+    const flush = () => {
+      if (!pendingWriteRef.current) return;
+      const fv = formValueRef.current;
+      if (!fv) return;
+      pendingWriteRef.current = false;
+      try {
+        writeGuestMoodscreen(fv, {
+          createdAt: persistMetaRef.current.created_at,
+          updatedAt: fv.updated_at,
+        });
+        if (user?.id) markPendingUpload(user.id);
+      } catch {
+        /* Quota or private mode. There is nothing further to try from here and
+         * nothing useful to say to someone who has already left the page. */
+      }
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pagehide", flush);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pagehide", flush);
+    };
+  }, [hydrated, user?.id]);
+
+  /**
+   * "Saved" stands down on its own.
+   *
+   * Its own effect rather than a timer inside the persist effect, which is torn
+   * down and rebuilt on every edit — the confirmation would be cancelled by the
+   * next keystroke and never clear.
+   */
+  useEffect(() => {
+    if (saveState !== "saved") return undefined;
+    const t = window.setTimeout(() => setSaveState("idle"), SAVED_VISIBLE_MS);
+    return () => window.clearTimeout(t);
+  }, [saveState]);
 
   useEffect(() => {
     if (!storageNotice) return undefined;
@@ -515,6 +695,11 @@ export function MoodscreenProvider({ children }) {
     [mood, statement, name, username, draftUsername, avatarUrl, themeId, surface, postedAt],
   );
 
+  /* Read by the debounce below, so it hands the twins the latest props rather
+   * than the ones captured when its timer was scheduled. */
+  const moodscreenPropsRef = useRef(moodscreenProps);
+  moodscreenPropsRef.current = moodscreenProps;
+
   /**
    * §3 — the accent is the mood currently in focus, not a fixed brand colour.
    *
@@ -538,57 +723,120 @@ export function MoodscreenProvider({ children }) {
   /** { key, blob, file, filename } for the current Moodscreen, or null. */
   const preparedRef = useRef(null);
 
+  /**
+   * True while `captureNow` is photographing on demand.
+   *
+   * It flushes the twins to the live card first, and that flush is itself a
+   * change to `exportProps` — which would otherwise wake the pre-render effect
+   * and run a second 1620x1620 capture alongside the one the user is waiting
+   * for, at the one moment there is least to spare.
+   */
+  const capturingRef = useRef(false);
+
   const exportKey = useMemo(() => JSON.stringify(moodscreenProps), [moodscreenProps]);
   const exportKeyRef = useRef(exportKey);
   exportKeyRef.current = exportKey;
 
   /**
-   * Pre-render the blob whenever the Moodscreen changes.
+   * What the off-screen twins are currently drawn as — the live Moodscreen, but
+   * only once the typing has stopped.
+   *
+   * The twins exist to be photographed, and the photograph is taken on the
+   * PRERENDER_DEBOUNCE_MS pause. Following every keystroke to get there was
+   * work nobody could see: two more full 540px cards reconciled per character,
+   * with their clip paths, gradients, textures and three SVG marks each, so the
+   * app was rendering the product three times over to produce one visible
+   * update. They now change on the same beat the capture runs on, which is the
+   * only beat at which their contents ever mattered.
+   *
+   * It also removes a race the old shape had to hope its way out of. The
+   * capture used to fire on a timer and read whatever the DOM happened to hold;
+   * now the render that changes the node is the thing that schedules the
+   * capture, so the node is current by construction.
+   */
+  const [exportProps, setExportProps] = useState(null);
+  const exportPrimedRef = useRef(false);
+
+  /**
+   * What the twins are drawn as before the first debounce has run: the live
+   * props, so the node exists and is correct from the first paint. `captureNow`
+   * depends on it being there.
+   */
+  const drawnExportProps = exportProps ?? moodscreenProps;
+
+  /**
+   * A pre-rendered blob is only good for the Moodscreen it was taken of, so the
+   * moment the live one moves the prepared file is stale — said here, on the
+   * keystroke, rather than after the debounce, because `sharePng` may be tapped
+   * in between and must not hand over a picture of the previous statement.
+   */
+  useEffect(() => {
+    if (!hydrated) return undefined;
+    preparedRef.current = null;
+    setShareReady(false);
+
+    /* The card arriving from storage is not a pause in typing, it is the first
+     * time there is anything to photograph — so the twins take it at once and
+     * the debounce starts counting from there. Waiting the full 400ms here
+     * would only mean capturing the defaults first and the real card second. */
+    if (!exportPrimedRef.current) {
+      exportPrimedRef.current = true;
+      setExportProps(moodscreenPropsRef.current);
+      return undefined;
+    }
+
+    const timer = window.setTimeout(
+      () => setExportProps(moodscreenPropsRef.current),
+      PRERENDER_DEBOUNCE_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [exportKey, hydrated]);
+
+  /**
+   * Pre-render the blob once the twins are showing the current Moodscreen.
    *
    * This is what fixes the two-tap share: Web Share has to be called in the
    * same synchronous turn as the tap, and awaiting a capture spends the
    * gesture. Doing the work ahead of time means the tap has a File already.
    */
   useEffect(() => {
-    if (!hydrated || typeof document === "undefined") return undefined;
+    if (!hydrated || !exportProps || typeof document === "undefined") return undefined;
+    if (capturingRef.current) return undefined;
 
     let cancelled = false;
-    setShareReady(false);
-    preparedRef.current = null;
 
-    const timer = window.setTimeout(() => {
-      void (async () => {
-        try {
-          const node = document.getElementById(EXPORT_NODE_ID);
-          if (!node || cancelled) return;
+    void (async () => {
+      try {
+        const node = document.getElementById(EXPORT_NODE_ID);
+        if (!node || cancelled) return;
 
-          const theme = getTheme(themeId);
-          await ensureMoodscreenFontsReady(theme);
-          if (cancelled) return;
+        const theme = getTheme(exportProps.themeId);
+        await ensureMoodscreenFontsReady(theme);
+        if (cancelled) return;
 
-          const blob = await captureMoodscreenBlob(node, { theme });
-          if (cancelled) return;
+        const blob = await captureMoodscreenBlob(node, { theme });
+        if (cancelled) return;
 
-          const filename = exportFilename(moodscreenProps.username, name);
-          preparedRef.current = {
-            key: exportKey,
-            blob,
-            filename,
-            file: new File([blob], filename, { type: "image/png" }),
-          };
-          setShareReady(true);
-        } catch (e) {
-          /* Not user-facing: the on-demand path below will retry and report. */
-          console.warn("moodscreen pre-render failed:", e);
-        }
-      })();
-    }, PRERENDER_DEBOUNCE_MS);
+        const filename = exportFilename(exportProps.username, exportProps.name);
+        preparedRef.current = {
+          /* Keyed by what was photographed, not by what is on screen now, so
+           * `currentPrepared` can tell the two apart. */
+          key: JSON.stringify(exportProps),
+          blob,
+          filename,
+          file: new File([blob], filename, { type: "image/png" }),
+        };
+        if (!cancelled) setShareReady(true);
+      } catch (e) {
+        /* Not user-facing: the on-demand path below will retry and report. */
+        console.warn("moodscreen pre-render failed:", e);
+      }
+    })();
 
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
     };
-  }, [exportKey, hydrated, themeId, moodscreenProps.username, name]);
+  }, [exportProps, hydrated]);
 
   /** The blob for right now — the pre-rendered one if it is still current. */
   const currentPrepared = useCallback(() => {
@@ -597,16 +845,35 @@ export function MoodscreenProvider({ children }) {
   }, []);
 
   const captureNow = useCallback(async () => {
-    const node = document.getElementById(EXPORT_NODE_ID);
-    if (!node) throw new Error("The Moodscreen is not ready yet.");
-    const theme = getTheme(formValueRef.current?.themeId);
-    await ensureMoodscreenFontsReady(theme);
-    const blob = await captureMoodscreenBlob(node, { theme });
-    /* The handle the card is wearing, not only a claimed one — a guest who has
-     * typed a name into the claim field gets `moodscreen-isaac.png` rather than
-     * a file named after nobody. */
-    const filename = exportFilename(moodscreenProps.username, formValueRef.current?.name);
-    return { blob, filename };
+    /**
+     * Bring the twins up to the live card before photographing one.
+     *
+     * They lag it by up to PRERENDER_DEBOUNCE_MS, and this path exists for
+     * exactly the window in which they do — a tap that lands before the
+     * pre-render has caught up. Without the flush the file that comes back is a
+     * picture of the previous statement, which is the drift §7 spends the whole
+     * one-component rule preventing, arriving through the back door.
+     *
+     * `flushSync` rather than a settle: the capture reads the DOM, so the
+     * commit has to have happened, not merely been scheduled.
+     */
+    capturingRef.current = true;
+    try {
+      flushSync(() => setExportProps(moodscreenPropsRef.current));
+
+      const node = document.getElementById(EXPORT_NODE_ID);
+      if (!node) throw new Error("The Moodscreen is not ready yet.");
+      const theme = getTheme(formValueRef.current?.themeId);
+      await ensureMoodscreenFontsReady(theme);
+      const blob = await captureMoodscreenBlob(node, { theme });
+      /* The handle the card is wearing, not only a claimed one — a guest who
+       * has typed a name into the claim field gets `moodscreen-isaac.png`
+       * rather than a file named after nobody. */
+      const filename = exportFilename(moodscreenProps.username, formValueRef.current?.name);
+      return { blob, filename };
+    } finally {
+      capturingRef.current = false;
+    }
   }, [moodscreenProps.username]);
 
   const downloadPng = useCallback(async () => {
@@ -755,6 +1022,7 @@ export function MoodscreenProvider({ children }) {
       initials,
       storageHydrated: hydrated,
       storageNotice,
+      saveState,
       draftUsername,
       setDraftUsername,
     }),
@@ -772,6 +1040,7 @@ export function MoodscreenProvider({ children }) {
       initials,
       hydrated,
       storageNotice,
+      saveState,
       draftUsername,
     ],
   );
@@ -779,8 +1048,10 @@ export function MoodscreenProvider({ children }) {
   return (
     <MoodscreenContext.Provider value={value}>
       {children}
-      {/* The node every capture photographs. Always mounted, never seen. */}
-      <MoodscreenExportSurface {...moodscreenProps} />
+      {/* The node every capture photographs. Always mounted, never seen — and
+        * drawn from the debounced copy rather than the live one, so typing does
+        * not reconcile two more full-size cards per character. */}
+      <MoodscreenExportSurface {...drawnExportProps} />
     </MoodscreenContext.Provider>
   );
 }

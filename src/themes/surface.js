@@ -189,6 +189,28 @@ function ensureContrast(field, base, { l, maxC }) {
 }
 
 /**
+ * Answers already worked out, by hue, surface and band.
+ *
+ * The derivation is pure and it is not cheap. `ensureContrast` walks up to
+ * twenty-one tones, and each of those is a full OKLCH round trip with a gamut
+ * search inside it — about 0.2ms a call on a desktop, and several times that on
+ * the mid-range Android §6 writes the motion budget for. It is also called on
+ * every render of every Moodscreen, and the app keeps three mounted, so it was
+ * running six times per keystroke and showing up as typing lag.
+ *
+ * Nothing about it varies with time or with the caller: the whole input is a
+ * hue, a surface and an hour band. Ten moods times three surfaces times three
+ * bands, twice over for the site's reduced chroma and the export's full chroma,
+ * is a table small enough to fill lazily and never evict — and the Pro hue
+ * wheel only adds hues to it, which is the same bounded shape.
+ *
+ * The returned object is shared, so callers read it and never write to it.
+ * Stable identity is a small bonus on top: a `useMemo` downstream of this now
+ * holds across renders that changed nothing.
+ */
+const resolvedCache = new Map();
+
+/**
  * @param {object}  args
  * @param {object}  args.mood      an entry from lib/moods.js
  * @param {string}  args.surface   'colour' | 'ink' | 'paper'
@@ -205,6 +227,12 @@ export function resolveSurface({ mood, surface = DEFAULT_SURFACE, at, forExport 
    * mood at ~6% less chroma while the export keeps it full. The only
    * difference between what you see and what you post. */
   const hue = forExport ? mood.color : mood.siteColor;
+
+  /* The hue already carries `forExport`, so the three parts below are the
+   * function's entire input. */
+  const cacheKey = `${hue}|${id}|${band.id}`;
+  const cached = resolvedCache.get(cacheKey);
+  if (cached) return cached;
 
   const field = { colour: hue, ink: INK_SURFACE, paper: PAPER_SURFACE }[id];
   const tone = INK_TONE[id];
@@ -224,11 +252,14 @@ export function resolveSurface({ mood, surface = DEFAULT_SURFACE, at, forExport 
    * would only lose contrast. */
   const inkShift = band.id === "night" && id === "ink" ? 0.05 : 0;
 
-  return {
+  const result = Object.freeze({
     background: shifted,
     ink: ensureContrast(shifted, hue, { l: tone.l + inkShift, maxC: tone.maxC }),
     over: id === "ink" ? "dark" : "light",
     surface: id,
     band: band.id,
-  };
+  });
+
+  resolvedCache.set(cacheKey, result);
+  return result;
 }

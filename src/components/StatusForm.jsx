@@ -13,6 +13,7 @@
  * link, and the location the public page shows. §1 is emphatic about the link
  * being one, maximum — resist every request for a second field.
  */
+import { useCallback } from "react";
 import AvatarField from "./editor/AvatarField.jsx";
 import MoodStrip from "./editor/MoodStrip.jsx";
 import StatementField from "./editor/StatementField.jsx";
@@ -88,6 +89,25 @@ export default function StatusForm({
     updated_at: at,
   } = value;
 
+  /**
+   * One stable handler per field, rather than a fresh arrow in the JSX.
+   *
+   * The statement is the only control here that changes as you type, and it was
+   * dragging the other eight through a full reconcile on every character —
+   * including the mood strip, which is ten clipped stops and two SVG marks and
+   * has nothing whatever to do with what the statement says. An inline arrow is
+   * a new function identity every render, so no amount of memoising downstream
+   * could have stopped it; this is what lets the strip skip the render.
+   */
+  const setStatement = useCallback((next) => onChange({ statement: next }), [onChange]);
+  const setMood = useCallback((next) => onChange({ mood: next }), [onChange]);
+  const setSurface = useCallback((next) => onChange({ surface: next }), [onChange]);
+  const setThemeId = useCallback((next) => onChange({ themeId: next }), [onChange]);
+  const setAvatarUrl = useCallback((next) => onChange({ avatarUrl: next }), [onChange]);
+  const setName = useCallback((e) => onChange({ name: e.target.value }), [onChange]);
+  const setLocation = useCallback((e) => onChange({ location: e.target.value }), [onChange]);
+  const setLink = useCallback((e) => onChange({ link: e.target.value }), [onChange]);
+
   return (
     <section
       className={["flex flex-col gap-8 rounded-lg border border-line bg-raised p-6", className]
@@ -103,7 +123,7 @@ export default function StatusForm({
       <Field label="Say what you're on" id="status-form-statement-label">
         <StatementField
           value={statement}
-          onChange={(next) => onChange({ statement: next })}
+          onChange={setStatement}
         />
       </Field>
 
@@ -111,7 +131,7 @@ export default function StatusForm({
         <MoodStrip
           label="Mood"
           value={mood}
-          onChange={(next) => onChange({ mood: next })}
+          onChange={setMood}
         />
       </Field>
 
@@ -120,7 +140,7 @@ export default function StatusForm({
           value={surface}
           mood={mood}
           at={at}
-          onChange={(next) => onChange({ surface: next })}
+          onChange={setSurface}
         />
       </Field>
 
@@ -128,7 +148,7 @@ export default function StatusForm({
         <ThemePicker
           labelledBy="status-form-theme-label"
           value={themeId}
-          onChange={(next) => onChange({ themeId: next })}
+          onChange={setThemeId}
         />
       </Field>
 
@@ -136,14 +156,14 @@ export default function StatusForm({
         <AvatarField
           value={avatarUrl || ""}
           name={name}
-          onChange={(next) => onChange({ avatarUrl: next })}
+          onChange={setAvatarUrl}
         />
       </Field>
 
       <Input
         label="Name"
         value={name}
-        onChange={(e) => onChange({ name: e.target.value })}
+        onChange={setName}
         placeholder="Your name"
         autoComplete="name"
       />
@@ -151,7 +171,7 @@ export default function StatusForm({
       <Input
         label="Location"
         value={location}
-        onChange={(e) => onChange({ location: e.target.value })}
+        onChange={setLocation}
         placeholder="City or region"
         hint="Shown on your public page, never on the Moodscreen."
       />
@@ -160,7 +180,7 @@ export default function StatusForm({
       <Input
         label="Link"
         value={link}
-        onChange={(e) => onChange({ link: e.target.value })}
+        onChange={setLink}
         placeholder="https://"
         inputMode="url"
       />

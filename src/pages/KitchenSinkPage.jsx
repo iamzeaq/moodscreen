@@ -422,8 +422,12 @@ export default function KitchenSinkPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-4">
+              {/* "Download", not "Save the image". Save reads as saving your
+                * work, and next to an app view that has no Save button because
+                * it writes itself, that is the one word this must not use. The
+                * hero's button already says Download; this is the same act. */}
               <Button onClick={saveImage} loading={exporting}>
-                Save the image
+                Download
               </Button>
               <Button variant="secondary" onClick={() => setStatement(LONGEST_STATEMENT)}>
                 Fill to {STATEMENT_MAX_CHARS}

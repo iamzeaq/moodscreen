@@ -29,6 +29,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import AuthBar from "../components/AuthBar.jsx";
 import Moodscreen from "../components/Moodscreen.jsx";
+import SaveStatus from "../components/SaveStatus.jsx";
 import StatusForm from "../components/StatusForm.jsx";
 import WallOptIn from "../components/WallOptIn.jsx";
 import Wordmark from "../components/brand/Wordmark.jsx";
@@ -50,6 +51,7 @@ export default function CreatePage() {
     shareReady,
     downloadError,
     storageNotice,
+    saveState,
     storageHydrated,
   } = useMoodscreen();
 
@@ -122,11 +124,14 @@ export default function CreatePage() {
           </p>
         ) : null}
 
-        {storageNotice ? (
-          <p className="mt-4 max-w-[40ch] text-center text-13 text-muted" role="status">
-            {storageNotice}
-          </p>
-        ) : null}
+        {/* There is no Save button here and there should not be — §7.10's two
+          * actions are Share and Change it, and the Moodscreen writes itself a
+          * beat after the last edit. What was missing is any sign that it had:
+          * the notice below only ever spoke on failure, so a save that worked
+          * said nothing and the only evidence was the absence of an error.
+          * This is that sign, and it carries the failure notice too, so one
+          * line answers one question. */}
+        <SaveStatus state={saveState} notice={storageNotice} className="mt-4 text-center" />
 
         {/* Closed by default. Opening it is the second action, not a second
           * page — the Moodscreen stays on screen above, so every change is
