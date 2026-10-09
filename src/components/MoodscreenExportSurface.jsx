@@ -26,6 +26,17 @@ const MARGIN = 0.07;
 export const EXPORT_MODES = ["default", "sticker"];
 
 /**
+ * The link-preview frame: what WhatsApp, iMessage and X draw when someone
+ * pastes moodscreen.live/username. 1200x630 is the size every one of them
+ * accepts for a large preview, captured at 1x.
+ *
+ * Not a third export mode — nobody downloads it. It is photographed on save
+ * and uploaded, and api/og-page.js points the public page's og:image at it.
+ */
+export const OG_WIDTH = 1200;
+export const OG_HEIGHT = 630;
+
+/**
  * The two node ids for a given surface.
  *
  * Parameterised because more than one of these can be mounted at once —
@@ -34,7 +45,7 @@ export const EXPORT_MODES = ["default", "sticker"];
  * capture photograph whichever the DOM happened to reach first.
  */
 export function nodeIdsFor(prefix = EXPORT_NODE_ID) {
-  return { default: prefix, sticker: `${prefix}-sticker` };
+  return { default: prefix, sticker: `${prefix}-sticker`, og: `${prefix}-og` };
 }
 
 export const EXPORT_NODE_IDS = nodeIdsFor();
@@ -49,13 +60,13 @@ export const EXPORT_NODE_IDS = nodeIdsFor();
  * Near-black rather than the mood colour, so a shared Moodscreen carries the
  * brand surface with it and the mood stays the thing that pops.
  */
-function Backdrop({ id, children }) {
+function Backdrop({ id, width = BASE_SIZE, height = BASE_SIZE, children }) {
   return (
     <div
       id={id}
       style={{
-        width: BASE_SIZE,
-        height: BASE_SIZE,
+        width,
+        height,
         background: "var(--canvas)",
         display: "flex",
         alignItems: "center",
@@ -85,7 +96,7 @@ function MoodscreenExportSurface({ idPrefix = EXPORT_NODE_ID, ...props }) {
         left: -99999,
         top: 0,
         width: BASE_SIZE,
-        height: BASE_SIZE * 2,
+        height: BASE_SIZE * 2 + OG_HEIGHT,
         pointerEvents: "none",
         zIndex: -1,
       }}
@@ -97,6 +108,13 @@ function MoodscreenExportSurface({ idPrefix = EXPORT_NODE_ID, ...props }) {
       {/* Sticker: no wrapper of its own. The card's clip-path is the edge of
         * the file, which is the whole point of the mode. */}
       <Moodscreen {...props} forExport id={ids.sticker} width={BASE_SIZE} />
+
+      {/* Link preview: the same backdrop, wider. The screen keeps the 7% margin
+        * against the short side and sits centred, so a platform that crops the
+        * preview to a square still has the whole screen. */}
+      <Backdrop id={ids.og} width={OG_WIDTH} height={OG_HEIGHT}>
+        <Moodscreen {...props} forExport width={Math.round(OG_HEIGHT * (1 - MARGIN * 2))} />
+      </Backdrop>
     </div>
   );
 }

@@ -260,6 +260,34 @@ export async function upsertMoodscreenForUser(userId, state, meta = {}) {
   }
 }
 
+/** Storage bucket for link-preview images — see the `og` bucket in schema.sql. */
+const OG_BUCKET = "og";
+
+/**
+ * Upload the link-preview image to og/{user_id}.jpg, replacing the last one.
+ *
+ * One object per user, overwritten in place, so the public URL is stable and
+ * api/og-page.js can build it from the user id alone. The short cache lifetime
+ * matters less than it looks: the page appends a version taken from the
+ * object's own Last-Modified, so a new upload is a new URL to every crawler.
+ *
+ * @param {string} userId
+ * @param {Blob} blob image/jpeg
+ */
+export async function uploadOgImage(userId, blob) {
+  if (!supabase || !userId || !blob) return { error: new Error("No client, user or image") };
+  try {
+    const { error } = await supabase.storage.from(OG_BUCKET).upload(`${userId}.jpg`, blob, {
+      upsert: true,
+      contentType: "image/jpeg",
+      cacheControl: "60",
+    });
+    return { error };
+  } catch (e) {
+    return { error: e };
+  }
+}
+
 /**
  * After login: adopt the guest Moodscreen into the account, but only into an
  * account that has none.

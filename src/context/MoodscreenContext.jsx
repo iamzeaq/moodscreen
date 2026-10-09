@@ -11,6 +11,7 @@ import { flushSync } from "react-dom";
 import { useAuth } from "./AuthContext.jsx";
 import MoodscreenExportSurface, {
   EXPORT_NODE_ID,
+  EXPORT_NODE_IDS,
 } from "../components/MoodscreenExportSurface.jsx";
 import {
   clearPendingUpload,
@@ -20,6 +21,7 @@ import {
   pendingUploadOwner,
   readGuestMoodscreen,
   serializeMoodscreenState,
+  uploadOgImage,
   upsertMoodscreenForUser,
   writeGuestMoodscreen,
 } from "../services/moodscreenDataService.js";
@@ -33,6 +35,7 @@ import { applyAccent } from "../lib/color.js";
 import { clampStatement } from "../lib/statementFit.js";
 import {
   captureMoodscreenBlob,
+  captureOgJpeg,
   ensureMoodscreenFontsReady,
   exportFilename,
 } from "../lib/exportMoodscreen.js";
@@ -280,6 +283,8 @@ export function MoodscreenProvider({ children }) {
   const lastSuccessfulSaveAtRef = useRef(0);
   /** True from the moment an edit is scheduled until it reaches storage. */
   const pendingWriteRef = useRef(false);
+  /** Set further down, beside the export twins it photographs. */
+  const refreshOgImageRef = useRef(null);
   const formValueRef = useRef(null);
   const [storageNotice, setStorageNotice] = useState(null);
   const storageNoticeTimerRef = useRef(null);
@@ -525,6 +530,9 @@ export function MoodscreenProvider({ children }) {
             /* The row is current again, so the local copy is no longer ahead
              * of it. */
             clearPendingUpload();
+            /* The link preview follows the row. Not awaited: it is a second,
+             * slower round-trip, and "Saved" is about the Moodscreen. */
+            refreshOgImageRef.current?.(user.id);
           } else {
             writeGuestMoodscreen(fv, saveMeta);
           }
@@ -756,6 +764,8 @@ export function MoodscreenProvider({ children }) {
    */
   const [exportProps, setExportProps] = useState(null);
   const exportPrimedRef = useRef(false);
+  const exportPropsRef = useRef(exportProps);
+  exportPropsRef.current = exportProps;
 
   /**
    * What the twins are drawn as before the first debounce has run: the live
@@ -875,6 +885,64 @@ export function MoodscreenProvider({ children }) {
       capturingRef.current = false;
     }
   }, [moodscreenProps.username]);
+
+  /**
+   * The link preview: photograph the 1200x630 twin and upload it as
+   * og/{user_id}.jpg, after every successful save — api/og-page.js serves it as
+   * the og:image of moodscreen.live/username.
+   *
+   * Only for a claimed handle. Without one there is no public page for a link
+   * to point at, and the twin would be wearing the draft handle from the claim
+   * field rather than anything a stranger could open.
+   *
+   * One at a time. Saves can land faster than a capture and an upload, and two
+   * uploads racing could leave the older picture as the last one written; so a
+   * save that arrives mid-flight marks one more as owed and the loop takes it,
+   * photographing whatever the twin shows by then.
+   */
+  const ogUploadRef = useRef({ running: false, owed: false });
+  const claimedUsernameRef = useRef(username);
+  claimedUsernameRef.current = username;
+
+  refreshOgImageRef.current = async (userId) => {
+    if (!claimedUsernameRef.current || typeof document === "undefined") return;
+    const state = ogUploadRef.current;
+    if (state.running) {
+      state.owed = true;
+      return;
+    }
+    state.running = true;
+    try {
+      do {
+        state.owed = false;
+        /* The twins trail the live card by the pre-render debounce, which is
+         * shorter than the persist debounce, so they are almost always current
+         * by the time a save lands. Almost: bring them up if not, guarded the
+         * same way captureNow is so the flush does not also start a 1620px
+         * capture alongside this one. */
+        if (JSON.stringify(exportPropsRef.current) !== exportKeyRef.current) {
+          capturingRef.current = true;
+          try {
+            flushSync(() => setExportProps(moodscreenPropsRef.current));
+          } finally {
+            capturingRef.current = false;
+          }
+        }
+        const node = document.getElementById(EXPORT_NODE_IDS.og);
+        if (!node) return;
+        const theme = getTheme(moodscreenPropsRef.current.themeId);
+        const blob = await captureOgJpeg(node, { theme });
+        const { error } = await uploadOgImage(userId, blob);
+        if (error) throw error;
+      } while (state.owed);
+    } catch (e) {
+      /* Not user-facing. The page falls back to the generic preview, and the
+       * next save tries again. */
+      console.warn("moodscreen link preview upload failed:", e);
+    } finally {
+      state.running = false;
+    }
+  };
 
   const downloadPng = useCallback(async () => {
     if (isExporting) return;

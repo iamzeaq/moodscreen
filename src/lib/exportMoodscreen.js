@@ -111,6 +111,55 @@ function getFontEmbedCss(node, faceFamily) {
  * @returns {Promise<Blob>}
  */
 export async function captureMoodscreenBlob(node, { pixelRatio = 3, theme } = {}) {
+  const canvas = await captureMoodscreenCanvas(node, { pixelRatio, theme });
+  const blob = await canvasToBlob(canvas, "image/png");
+  if (!blob || blob.size === 0) throw new Error("The capture came back empty.");
+  return blob;
+}
+
+/**
+ * WhatsApp drops the link preview image above roughly 300kB, and drops it
+ * silently — the link still sends, just as bare text. Kept under that with room
+ * to spare, since the limit is not published and has moved before.
+ */
+const OG_MAX_BYTES = 280 * 1024;
+const OG_QUALITIES = [0.86, 0.78, 0.68, 0.56];
+
+/**
+ * The link-preview image: the 1200x630 frame, as JPEG.
+ *
+ * JPEG because the frame is opaque by construction — the backdrop is inside
+ * the node — and a PNG of the grain layer runs to megabytes. The quality steps
+ * down until the file fits rather than being fixed, because grain and a long
+ * statement in a busy theme compress very differently from a short one.
+ *
+ * @param {HTMLElement} node the og export node
+ * @param {{ theme?: object }} [options]
+ * @returns {Promise<Blob>}
+ */
+export async function captureOgJpeg(node, { theme } = {}) {
+  const canvas = await captureMoodscreenCanvas(node, { pixelRatio: 1, theme });
+  let blob = null;
+  for (const quality of OG_QUALITIES) {
+    blob = await canvasToBlob(canvas, "image/jpeg", quality);
+    if (blob && blob.size > 0 && blob.size <= OG_MAX_BYTES) return blob;
+  }
+  if (!blob || blob.size === 0) throw new Error("The preview capture came back empty.");
+  throw new Error(`The preview is ${Math.round(blob.size / 1024)}kB at the lowest quality.`);
+}
+
+function canvasToBlob(canvas, type, quality) {
+  return new Promise((resolve) => canvas.toBlob(resolve, type, quality));
+}
+
+/**
+ * Photograph a node to a canvas, encoding left to the caller.
+ *
+ * html-to-image's own `toBlob` takes a `type` option and ignores it — it always
+ * encodes PNG — so the JPEG path has to encode the canvas itself, and the PNG
+ * path goes the same way to keep one capture routine.
+ */
+async function captureMoodscreenCanvas(node, { pixelRatio = 3, theme } = {}) {
   if (!node) throw new Error("No Moodscreen to export.");
 
   const width = node.offsetWidth || BASE_SIZE;
@@ -121,14 +170,14 @@ export async function captureMoodscreenBlob(node, { pixelRatio = 3, theme } = {}
    * cache stores a result with nothing in it for this theme. */
   await ensureMoodscreenFontsReady(theme);
 
-  const { toBlob } = await import("html-to-image");
+  const { toCanvas } = await import("html-to-image");
   const fontEmbedCSS = await getFontEmbedCss(node, theme?.font?.faceFamily);
 
   /* Two frames, so a just-changed statement has actually been painted. */
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
-  const blob = await withTimeout(
-    toBlob(node, {
+  return withTimeout(
+    toCanvas(node, {
       pixelRatio,
       width,
       height,
@@ -139,14 +188,10 @@ export async function captureMoodscreenBlob(node, { pixelRatio = 3, theme } = {}
       cacheBust: false,
       skipFonts: false,
       fontEmbedCSS,
-      type: "image/png",
     }),
     CAPTURE_TIMEOUT_MS,
     "PNG capture",
   );
-
-  if (!blob || blob.size === 0) throw new Error("The capture came back empty.");
-  return blob;
 }
 
 /** `moodscreen-{username}.png` — CLAUDE.md §7. */

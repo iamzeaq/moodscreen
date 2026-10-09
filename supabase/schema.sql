@@ -154,8 +154,13 @@ CREATE POLICY "moodscreens_select_public_profile" ON public.moodscreens FOR SELE
 -- no reach, only one round-trip less.
 DROP VIEW IF EXISTS public.public_moodscreens;
 
+--
+-- `user_id` is here for the link preview: api/og-page.js builds the image URL
+-- og/{user_id}.jpg from it. It adds no reach either — profiles_select_own_or_public
+-- already exposes the id of every claimed profile.
 CREATE VIEW public.public_moodscreens AS
 SELECT
+  p.id AS user_id,
   p.username,
   p.location,
   p.last_active,
@@ -281,3 +286,39 @@ CREATE FUNCTION public.pulse_by_mood (window_hours INT DEFAULT NULL)
 $$;
 
 GRANT EXECUTE ON FUNCTION public.pulse_by_mood (INT) TO anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Link previews
+-- ---------------------------------------------------------------------------
+-- og/{user_id}.jpg — the 1200x630 image a pasted moodscreen.live/username link
+-- unfurls to. Captured in the browser on save (MoodscreenContext) and served as
+-- og:image by api/og-page.js.
+--
+-- Public, because crawlers fetch it with no credentials at all. Capped at
+-- 300kB and JPEG only: the client already keeps it under WhatsApp's preview
+-- limit, and the cap makes that a rule rather than a habit.
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('og', 'og', TRUE, 307200, ARRAY['image/jpeg'])
+ON CONFLICT (id) DO UPDATE SET
+  public = EXCLUDED.public,
+  file_size_limit = EXCLUDED.file_size_limit,
+  allowed_mime_types = EXCLUDED.allowed_mime_types;
+
+-- Each user writes exactly one object, named for themselves, and nothing else.
+-- SELECT is needed as well as INSERT and UPDATE because an upsert reads the
+-- existing object first; reading through the public URL needs no policy.
+DROP POLICY IF EXISTS "og_select_own" ON storage.objects;
+
+CREATE POLICY "og_select_own" ON storage.objects FOR SELECT TO authenticated
+  USING (bucket_id = 'og' AND name = (SELECT auth.uid ())::TEXT || '.jpg');
+
+DROP POLICY IF EXISTS "og_insert_own" ON storage.objects;
+
+CREATE POLICY "og_insert_own" ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'og' AND name = (SELECT auth.uid ())::TEXT || '.jpg');
+
+DROP POLICY IF EXISTS "og_update_own" ON storage.objects;
+
+CREATE POLICY "og_update_own" ON storage.objects FOR UPDATE TO authenticated
+  USING (bucket_id = 'og' AND name = (SELECT auth.uid ())::TEXT || '.jpg')
+  WITH CHECK (bucket_id = 'og' AND name = (SELECT auth.uid ())::TEXT || '.jpg');
