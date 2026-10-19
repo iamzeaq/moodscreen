@@ -27,10 +27,13 @@
  * none of the other three belongs here; the page's job is to exist and load
  * fast.
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Moodscreen from "../components/Moodscreen.jsx";
+import ShareButton from "../components/brand/ShareButton.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
 import useFittedWidth from "../hooks/useFittedWidth.js";
+import { canShareLink, publicPageUrl, shareMoodscreen } from "../lib/share.js";
 import {
   isReservedUsername,
   isUsernameSlugValid,
@@ -87,6 +90,54 @@ function useRelativeTime(at) {
   });
 
   return relativeTime(at);
+}
+
+/** How long the tick holds after a copy before the plane comes back. */
+const COPIED_MS = 1600;
+
+/**
+ * Share someone else's Moodscreen — the page's one action, and its growth path.
+ *
+ * The link only. api/og-page.js already makes moodscreen.live/username unfurl
+ * as this Moodscreen wherever it is pasted, so the image arrives with the link
+ * and photographing a hidden copy here would be the same picture again —
+ * bought with a second render and a 1620px capture on every visit to the page
+ * shared links land on. The app's Share still sends the image as well: there
+ * the file is the product and the owner is choosing to post it.
+ *
+ * With no share sheet at all — most desktop browsers — the link is copied.
+ */
+function usePageShare(page) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return undefined;
+    const t = window.setTimeout(() => setCopied(false), COPIED_MS);
+    return () => window.clearTimeout(t);
+  }, [copied]);
+
+  const share = useCallback(() => {
+    if (!page) return;
+    const url = publicPageUrl(page.username);
+
+    const copy = () =>
+      navigator.clipboard
+        ?.writeText(url)
+        .then(() => setCopied(true))
+        .catch(() => {});
+
+    if (!canShareLink()) {
+      void copy();
+      return;
+    }
+    void shareMoodscreen({ title: `${page.name} on moodscreen`, url }).catch((e) => {
+      if (e && e.name === "AbortError") return;
+      console.warn("moodscreen public share:", e);
+      void copy();
+    });
+  }, [page]);
+
+  return { share, copied };
 }
 
 export default function PublicProfilePage() {
@@ -172,6 +223,7 @@ export default function PublicProfilePage() {
 
   const updated = useRelativeTime(page?.at);
   const [cardRef, cardWidth] = useFittedWidth(CARD_MAX);
+  const { share, copied } = usePageShare(page);
 
   if (loading) {
     return <div className="min-h-dvh bg-canvas" aria-hidden />;
@@ -271,6 +323,12 @@ export default function PublicProfilePage() {
           </p>
         ) : null}
 
+        {/* Pass it on. The page's one primary action (§10), wearing the mood of
+          * the Moodscreen it sends. Centred, unlike the app's: everything on
+          * this page sits on one centred axis under the screen, and a single
+          * left-aligned button on it would read as a layout fault. */}
+        <ShareButton mood={page.mood} onClick={share} done={copied} className="mt-8" />
+
         {href ? (
           <a
             href={href}
@@ -288,13 +346,37 @@ export default function PublicProfilePage() {
           * the person above, not for the product — so this is a way out for
           * anyone who wants one, not a pitch. §2: make a Moodscreen, never
           * "create yours". */}
-        <Link
-          to="/"
-          className="mt-14 text-13 text-faint transition-colors duration-[var(--dur-hover)] hover:text-muted"
-        >
-          Make your own Moodscreen
-        </Link>
+        <OwnMoodscreenLink />
       </div>
     </div>
+  );
+}
+
+/**
+ * The way out, by who is looking.
+ *
+ * Anyone signed in with a claimed page already has a Moodscreen — on their own
+ * page or someone else's — so "make your own" would be asking them to do what
+ * they have done. They get the way back to theirs instead. Everyone else, signed
+ * out or signed in with nothing claimed yet, gets the invitation.
+ *
+ * Nothing until auth has answered, holding the line's height: a returning owner
+ * would otherwise see "Make your own" for the first few hundred milliseconds and
+ * then watch it change under their thumb.
+ */
+function OwnMoodscreenLink() {
+  const { user, sessionReady, profile, profileLoading } = useAuth();
+  const className =
+    "mt-14 min-h-[1.55em] text-13 text-faint transition-colors duration-[var(--dur-hover)] hover:text-muted";
+
+  if (!sessionReady || (user && profileLoading)) {
+    return <span className={className} aria-hidden="true" />;
+  }
+
+  const hasMoodscreen = Boolean(user && profile?.username);
+  return (
+    <Link to={hasMoodscreen ? "/create" : "/"} className={className}>
+      {hasMoodscreen ? "Update your Moodscreen" : "Make your own Moodscreen"}
+    </Link>
   );
 }

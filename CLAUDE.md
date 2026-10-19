@@ -42,7 +42,7 @@ fine in code and filenames; it must never render on screen.
 |---|---|
 | Make a Moodscreen | Create card / Create yours |
 | Say what you're on | Enter your status |
-| Drop your Moodscreen | Share card |
+| Share | Share card / Drop your Moodscreen |
 | Claim moodscreen.live/yourname | Sign up |
 
 Headline, fixed: **What are you on right now?**
@@ -135,7 +135,7 @@ Never a Google Fonts CDN link — `html-to-image` cannot embed it and exports
 will silently fall back to Arial.
 
 - **Interface:** Switzer — nav, buttons, labels, inputs, body.
-- **Display:** per theme (see §7). Used only for the Moodscreen statement.
+- **Display:** per theme (see §7). Used for the Moodscreen statement only.
 
 **Do not use Inter.** It is the single loudest signal of a default build.
 
@@ -808,12 +808,29 @@ One primary action per view. No gradient fills, no glow.
 **The primary button is the screen in miniature, not a pill.** §7.1's outline
 is the brand; a rounded rectangle beside it is the one shape on the page that
 could have come from anywhere. So the primary action is a Moodscreen: the same
-path fitted to a wide box, a mood colour from §3, and the §8 face mark beside
-the label. Around **210 × 68**, left-aligned, never full width.
+path fitted to a box, a mood colour from §3, and an icon. Left-aligned, never
+full width — except on the public page, where every element sits on one
+centred axis and a lone left-aligned button reads as a fault.
 
-It reuses `screenPathBox` and `<Logo>`. Nothing about it is new geometry, and
-if it ever needs a private copy of either it has stopped being the product's
-own shape.
+**Share is the icon alone.** A **paper plane**, 30px, in a small screen,
+**72 × 60** — no visible label, `aria-label="Share"`, and well over the 44px
+tap target. Not the §8 face mark: the face is what the Moodscreen above it
+already wears, and a mood-coloured screen with a face under a mood-coloured
+screen with a face reads as a thumbnail of the card, not as the way to send
+it. The plane is drawn in the mark's idiom — strokes, round caps and joins,
+`currentColor`. Where a click copies the link instead of opening a share
+sheet, the plane swaps to a tick for a moment and a polite live region says
+`Link copied`. It lives in `<ShareButton>`.
+
+On `/create`, Share sends the image and the `moodscreen.live/username` link.
+On the public page it sends the link only: the link preview already unfurls
+as the Moodscreen, so capturing a hidden copy there would be the same picture
+again, bought on every visit to the page shared links land on.
+
+The wide **210 × 68** form, with the face mark beside the label, remains for
+primary actions that are not Share. Both reuse `screenPathBox`; nothing about
+either is new geometry, and if it ever needs a private copy of the path it
+has stopped being the product's own shape.
 
 Two states are drawn differently for reasons the shape forces:
 
