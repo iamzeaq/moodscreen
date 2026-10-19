@@ -33,7 +33,7 @@ import SaveStatus from "../components/SaveStatus.jsx";
 import StatusForm from "../components/StatusForm.jsx";
 import WallOptIn from "../components/WallOptIn.jsx";
 import Wordmark from "../components/brand/Wordmark.jsx";
-import ScreenButton from "../components/brand/ScreenButton.jsx";
+import ShareButton from "../components/brand/ShareButton.jsx";
 import Button from "../components/ui/Button.jsx";
 import useFittedWidth from "../hooks/useFittedWidth.js";
 import { useMoodscreen } from "../context/MoodscreenContext.jsx";
@@ -97,15 +97,25 @@ export default function CreatePage() {
         {/* The two actions. §10 allows one primary per view and Share is it —
           * the screen in miniature, wearing the mood being edited. "Change it"
           * is secondary because it is the way back into work, not the point of
-          * opening the app. */}
-        <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-          <ScreenButton
+          * opening the app.
+          *
+          * Left-aligned (§5, §10), on the Moodscreen's own left edge rather than
+          * the content column's: the row belongs to the object above it, and a
+          * button 360px away from the thing it shares points at nothing.
+          *
+          * The plane rather than the face mark, because the face mark is what
+          * the Moodscreen above already wears — a mood-coloured screen with a
+          * face under a mood-coloured screen with a face read as a thumbnail of
+          * the card, not as the way to send it. */}
+        <div
+          className="mt-10 flex w-full flex-wrap items-center justify-start gap-3"
+          style={{ maxWidth: CARD_MAX }}
+        >
+          <ShareButton
             mood={moodscreenProps.mood}
             onClick={sharePng}
             loading={isExporting && !shareReady}
-          >
-            {isExporting && !shareReady ? "Preparing" : "Drop your Moodscreen"}
-          </ScreenButton>
+          />
 
           <Button
             variant="secondary"
@@ -119,7 +129,11 @@ export default function CreatePage() {
         </div>
 
         {downloadError ? (
-          <p className="mt-4 max-w-[40ch] text-center text-13 text-danger" role="alert">
+          <p
+            className="mt-4 w-full text-left text-13 text-danger"
+            style={{ maxWidth: CARD_MAX }}
+            role="alert"
+          >
             {downloadError}
           </p>
         ) : null}
@@ -131,7 +145,11 @@ export default function CreatePage() {
           * said nothing and the only evidence was the absence of an error.
           * This is that sign, and it carries the failure notice too, so one
           * line answers one question. */}
-        <SaveStatus state={saveState} notice={storageNotice} className="mt-4 text-center" />
+        <SaveStatus
+          state={saveState}
+          notice={storageNotice}
+          className="mt-4 w-full max-w-[400px] text-left"
+        />
 
         {/* Closed by default. Opening it is the second action, not a second
           * page — the Moodscreen stays on screen above, so every change is

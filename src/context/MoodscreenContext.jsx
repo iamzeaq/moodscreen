@@ -34,6 +34,7 @@ import {
 import { accentForMood, isMoodId } from "../lib/moods.js";
 import { applyAccent } from "../lib/color.js";
 import { clampStatement } from "../lib/statementFit.js";
+import { canShareFiles, publicPageUrl, shareMoodscreen } from "../lib/share.js";
 import {
   captureMoodscreenBlob,
   captureOgJpeg,
@@ -120,67 +121,6 @@ function getInitials(name) {
   if (!trimmed) return "";
   const parts = trimmed.split(/\s+/).slice(0, 2);
   return parts.map((p) => p[0]).join("").toUpperCase();
-}
-
-/** Public URL for link field + OG; add https:// if missing */
-function normalizeShareUrl(link) {
-  if (typeof window === "undefined") {
-    return "https://moodscreen.live/";
-  }
-  const envSite = typeof import.meta !== "undefined" ? import.meta.env?.VITE_PUBLIC_SITE_URL : "";
-  const fallback =
-    typeof envSite === "string" && envSite.trim()
-      ? envSite.trim().replace(/\/?$/, "/")
-      : `${window.location.origin}/`;
-  const t = (link || "").trim();
-  if (!t) return fallback.replace(/\/?$/, "/");
-  if (/^https?:\/\//i.test(t)) return t;
-  return `https://${t}`;
-}
-
-/**
- * Whether this browser can put a PNG into a share sheet at all.
- *
- * Desktop is the case that matters. Windows Chrome often has no
- * `navigator.share`, and where it does it frequently refuses `files` — so the
- * share path used to end at "Share failed: Web Share is not available", which
- * is a dead end dressed as an error. Checked up front so the caller can take
- * the download instead, which on a desktop is what sharing means anyway.
- */
-function canShareFiles(file) {
-  if (typeof navigator === "undefined" || typeof navigator.share !== "function") return false;
-  if (typeof navigator.canShare !== "function") return true;
-  try {
-    return navigator.canShare({ files: [file] });
-  } catch {
-    return false;
-  }
-}
-
-/** Web Share must run in the same synchronous turn as a tap. */
-function invokeNavigatorShare({ file, text, url }) {
-  if (typeof navigator === "undefined" || typeof navigator.share !== "function") {
-    return Promise.reject(new Error("Web Share is not available"));
-  }
-  const title = "moodscreen";
-  const tries = [
-    { files: [file], title, text, url },
-    { files: [file], title, text },
-    { files: [file], title },
-    { text, url, title },
-  ];
-  let lastErr;
-  for (const data of tries) {
-    try {
-      if (typeof navigator.canShare === "function" && !navigator.canShare(data)) {
-        continue;
-      }
-      return navigator.share(data);
-    } catch (e) {
-      lastErr = e;
-    }
-  }
-  return Promise.reject(lastErr ?? new Error("This browser cannot share this content"));
 }
 
 const DEFAULT_FORM = {
@@ -1045,8 +985,11 @@ export function MoodscreenProvider({ children }) {
    */
   const sharePng = useCallback(() => {
     setDownloadError(null);
-    const pageUrl = normalizeShareUrl(formValueRef.current?.link);
-    const text = `moodscreen — ${pageUrl}`;
+    /* The live page, not the optional link: the page is what a stranger can
+     * open and what unfurls as this Moodscreen. Before a handle is claimed
+     * there is no page, and the site root is the honest address. */
+    const pageUrl = publicPageUrl(claimedUsernameRef.current);
+    const title = "moodscreen";
 
     const prep = currentPrepared();
     if (prep) {
@@ -1054,7 +997,7 @@ export function MoodscreenProvider({ children }) {
         void downloadPng();
         return;
       }
-      void invokeNavigatorShare({ file: prep.file, text, url: pageUrl }).catch((e) => {
+      void shareMoodscreen({ file: prep.file, title, url: pageUrl }).catch((e) => {
         if (e && e.name === "AbortError") return;
         console.warn("moodscreen share:", e);
         const msg = e && typeof e.message === "string" ? e.message : String(e);
@@ -1079,7 +1022,7 @@ export function MoodscreenProvider({ children }) {
           else triggerBrowserDownload(blob, filename);
           return;
         }
-        await invokeNavigatorShare({ file, text, url: pageUrl });
+        await shareMoodscreen({ file, title, url: pageUrl });
       } catch (e) {
         if (e && e.name === "AbortError") return;
         console.warn("moodscreen share prepare failed:", e);

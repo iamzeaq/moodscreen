@@ -39,6 +39,15 @@ const REST = { width: 210, height: 68 };
  */
 const RING_OUTSET = 4;
 
+function Spinner({ className }) {
+  return (
+    <svg className={`animate-spin ${className}`} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="2" opacity="0.25" />
+      <path d="M14.5 8a6.5 6.5 0 0 0-6.5-6.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 const ScreenButton = forwardRef(function ScreenButton(
   {
     /** The mood the button wears at rest. Usually the one currently in focus. */
@@ -47,6 +56,11 @@ const ScreenButton = forwardRef(function ScreenButton(
     height = REST.height,
     /** The face mark inside. 20px sits between the lockup's 17 and the label's 24. */
     markSize = 20,
+    /**
+     * Drawn in place of the face mark when the action needs to say what it
+     * does — Share wears a paper plane. Inherits the button's ink.
+     */
+    icon = null,
     disabled = false,
     loading = false,
     type = "button",
@@ -59,6 +73,8 @@ const ScreenButton = forwardRef(function ScreenButton(
   ref,
 ) {
   const inert = disabled || loading;
+  /** An icon and no text: the caller names the action with `aria-label`. */
+  const iconOnly = Boolean(icon) && (children === null || children === undefined || children === "");
 
   /**
    * Each hover advances one stop, so hovering repeatedly walks the ring rather
@@ -152,31 +168,24 @@ const ScreenButton = forwardRef(function ScreenButton(
           transitionTimingFunction: "var(--ease)",
         }}
       >
-        {/* §8 — the mark takes the mood the button is currently wearing. */}
-        <Logo mood={shown} size={markSize} />
-
-        {/* The label keeps its width while loading, so nothing reflows, and
-          * the spinner sits exactly where the label was rather than off to
-          * one side of a button that otherwise looks half-empty. */}
-        <span className="relative inline-flex items-center">
-          <span className={loading ? "invisible" : undefined}>{children}</span>
-          {loading ? (
-            <svg
-              className="absolute left-1/2 h-4 w-4 -translate-x-1/2 animate-spin"
-              viewBox="0 0 16 16"
-              fill="none"
-              aria-hidden="true"
-            >
-              <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="2" opacity="0.25" />
-              <path
-                d="M14.5 8a6.5 6.5 0 0 0-6.5-6.5"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </svg>
-          ) : null}
+        {/* §8 — the mark takes the mood the button is currently wearing.
+          * With no label, the icon is the whole button, so it is what the
+          * spinner replaces. */}
+        <span className={iconOnly && loading ? "invisible inline-flex" : "inline-flex"}>
+          {icon ?? <Logo mood={shown} size={markSize} />}
         </span>
+
+        {/* The label keeps its width while loading, so nothing reflows. */}
+        {iconOnly ? null : (
+          <span className="relative inline-flex items-center">
+            <span className={loading ? "invisible" : undefined}>{children}</span>
+            {loading ? <Spinner className="absolute left-1/2 h-4 w-4 -translate-x-1/2" /> : null}
+          </span>
+        )}
+
+        {iconOnly && loading ? (
+          <Spinner className="absolute left-1/2 top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2" />
+        ) : null}
       </span>
     </Tag>
   );
