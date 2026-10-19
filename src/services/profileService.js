@@ -71,11 +71,23 @@ export async function fetchProfileByUsername(username) {
 export async function fetchPublicPage(username) {
   if (!supabase || !username) return { data: null, error: null };
   const slug = normalizeUsernameSlug(username);
-  const { data, error } = await supabase
-    .from("public_moodscreens")
-    .select("username, location, last_active, data, updated_at")
-    .eq("username", slug)
-    .maybeSingle();
+
+  /* Asks without `changed_at` if the first query is refused, so a database
+   * that has not had schema.sql's column applied still draws the page — the
+   * "updated" line just falls back to the statement's stamp. */
+  let data = null;
+  let error = null;
+  for (const columns of [
+    "username, location, last_active, data, updated_at, changed_at",
+    "username, location, last_active, data, updated_at",
+  ]) {
+    ({ data, error } = await supabase
+      .from("public_moodscreens")
+      .select(columns)
+      .eq("username", slug)
+      .maybeSingle());
+    if (!error) break;
+  }
 
   if (error) return { data: null, error };
   if (!data?.username) return { data: null, error: null };
@@ -87,9 +99,13 @@ export async function fetchPublicPage(username) {
       last_active: data.last_active ?? null,
       moodscreen: normalizeStoredMoodscreen(data.data),
       /* The row's own stamp is the fallback for a payload written before
-       * `updated_at` was stored inside it — §7.4's tint and the "updated N
-       * minutes ago" line both run off this. */
+       * `updated_at` was stored inside it. It is the hour the statement was
+       * written, which is what §7.4's tint runs off. */
       updated_at: data.updated_at ?? null,
+      /* When anything on the Moodscreen last changed — mood, theme, photo as
+       * well as the statement. Set by the database, not the client; this is
+       * what the "updated N minutes ago" line reads. */
+      changed_at: data.changed_at ?? null,
     },
     error: null,
   };

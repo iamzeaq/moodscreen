@@ -178,6 +178,10 @@ export default function PublicProfilePage() {
           /* §7.4 — the tint belongs to the hour it was written, not the hour a
            * stranger opens it. */
           at: ms.updated_at || data.updated_at || ms.created_at,
+          /* The freshness line is a different question: not when the
+           * statement was written but when anything on it last moved. A mood
+           * change with the same words is still the page being kept live. */
+          changedAt: data.changed_at || ms.updated_at || data.updated_at || ms.created_at,
         });
         setLoading(false);
         return;
@@ -206,6 +210,7 @@ export default function PublicProfilePage() {
           themeId: seed.themeId,
           surface: seed.surface,
           at: seed.at,
+          changedAt: seed.at,
         });
         setLoading(false);
         return;
@@ -221,7 +226,7 @@ export default function PublicProfilePage() {
     };
   }, [slug]);
 
-  const updated = useRelativeTime(page?.at);
+  const updated = useRelativeTime(page?.changedAt);
   const [cardRef, cardWidth] = useFittedWidth(CARD_MAX);
   const { share, copied } = usePageShare(page);
 

@@ -52,6 +52,54 @@ DROP POLICY IF EXISTS "Users update own moodscreen" ON public.moodscreens;
 CREATE POLICY "Users update own moodscreen" ON public.moodscreens
   FOR UPDATE USING (auth.uid() = user_id);
 
+-- When anything on the Moodscreen last changed, for the public page's
+-- "updated N minutes ago" line.
+--
+-- `updated_at` cannot do this job: it is the hour the *statement* was written,
+-- §7.4's night tint runs off it, and so a change of mood, theme or photo
+-- deliberately leaves it alone. The freshness line asks a different question —
+-- has this page been kept live — and a new mood with the same words says yes.
+--
+-- Set here rather than by the client, so it is the server's clock and nothing
+-- in the app has to remember to send it. Restamped only when `data` actually
+-- differs, so a save that changed nothing does not claim a fresh update.
+--
+-- Added nullable, backfilled from `updated_at`, then tightened: a plain
+-- DEFAULT NOW() would stamp every existing row "just now" on the day it ran.
+ALTER TABLE public.moodscreens
+  ADD COLUMN IF NOT EXISTS changed_at TIMESTAMPTZ;
+
+UPDATE public.moodscreens
+SET
+  changed_at = updated_at
+WHERE
+  changed_at IS NULL;
+
+ALTER TABLE public.moodscreens
+  ALTER COLUMN changed_at SET DEFAULT NOW(),
+  ALTER COLUMN changed_at SET NOT NULL;
+
+CREATE OR REPLACE FUNCTION public.moodscreens_stamp_changed_at ()
+  RETURNS TRIGGER
+  LANGUAGE plpgsql
+  AS $$
+BEGIN
+  IF TG_OP = 'INSERT' OR NEW.data IS DISTINCT FROM OLD.data THEN
+    NEW.changed_at = NOW();
+  ELSE
+    NEW.changed_at = OLD.changed_at;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS moodscreens_changed_at ON public.moodscreens;
+
+CREATE TRIGGER moodscreens_changed_at
+  BEFORE INSERT OR UPDATE ON public.moodscreens
+  FOR EACH ROW
+  EXECUTE PROCEDURE public.moodscreens_stamp_changed_at ();
+
 -- Keep public.users in sync when someone signs up.
 --
 -- CREATE OR REPLACE here, not the drop-and-recreate used for the view and for
@@ -158,6 +206,9 @@ DROP VIEW IF EXISTS public.public_moodscreens;
 -- `user_id` is here for the link preview: api/og-page.js builds the image URL
 -- og/{user_id}.jpg from it. It adds no reach either — profiles_select_own_or_public
 -- already exposes the id of every claimed profile.
+--
+-- `changed_at` drives the "updated N minutes ago" line; `updated_at` stays the
+-- statement's hour for the tint. See the trigger on moodscreens above.
 CREATE VIEW public.public_moodscreens AS
 SELECT
   p.id AS user_id,
@@ -165,7 +216,8 @@ SELECT
   p.location,
   p.last_active,
   m.data,
-  m.updated_at
+  m.updated_at,
+  m.changed_at
 FROM public.profiles p
   LEFT JOIN public.moodscreens m ON m.user_id = p.id
 WHERE
