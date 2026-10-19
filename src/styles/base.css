@@ -9,9 +9,16 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/* `clip`, not `hidden`, on body and #root. Both stop horizontal panning, but
+ * `hidden` also makes the element a scroll container, and `position: sticky`
+ * then pins to that box — which never scrolls — instead of the viewport, so it
+ * silently does nothing. `hidden` stays first as the fallback for browsers
+ * without `clip`. (html keeps `hidden`: on the root it applies to the
+ * viewport, which is the scroller anyway.) */
 body {
   max-width: 100%;
   overflow-x: hidden;
+  overflow-x: clip;
   overscroll-behavior-x: none;
   /* Vertical scroll + pinch zoom; block horizontal page panning */
   touch-action: pan-y pinch-zoom;
@@ -30,6 +37,7 @@ body {
 #root {
   max-width: 100%;
   overflow-x: hidden;
+  overflow-x: clip;
   min-height: 100dvh;
 }
 
