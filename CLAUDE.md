@@ -902,6 +902,10 @@ last thing done and lands a second or so after the statement that triggered the
 previous save; it applied to every field. Compute the wait up front instead:
 the debounce, or whatever is left of the cooldown, whichever is longer.
 
+**Commits and PRs carry no tool attribution.** Never add `Co-Authored-By`,
+`Claude-Session`, or "Generated with Claude Code" lines to any commit message
+or PR description.
+
 Environment: Windows, PowerShell, nvm. Run
 `$env:ComSpec = "C:\Windows\System32\cmd.exe"` before npm commands in each
 new session or `npm install` fails with `spawn EPERM`.
