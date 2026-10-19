@@ -159,12 +159,19 @@ function headTags({ title, description, image, imageType, url }) {
   ].join("\n    ");
 }
 
-/** Swap the shell's description, og: and twitter: tags, and its title. */
+/**
+ * Swap the shell's description, og: and twitter: tags, and its title.
+ *
+ * Replacements are functions, not strings: a string replacement expands `$&`,
+ * `$'` and `` $` ``, and the tags carry the user's own statement — so a
+ * Moodscreen reading "raised $' today" would paste the rest of the document
+ * into the head.
+ */
 function inject(html, tags, title) {
   return html
     .replace(/<meta\s+(?:property="og:[^"]*"|name="twitter:[^"]*"|name="description")[^>]*>\s*/g, "")
-    .replace(/<title>[\s\S]*?<\/title>/, `<title>${escapeHtml(title)}</title>`)
-    .replace("</head>", `    ${tags}\n  </head>`);
+    .replace(/<title>[\s\S]*?<\/title>/, () => `<title>${escapeHtml(title)}</title>`)
+    .replace("</head>", () => `    ${tags}\n  </head>`);
 }
 
 function oneLine(s, max) {
