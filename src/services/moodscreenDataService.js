@@ -289,6 +289,29 @@ export async function uploadOgImage(userId, blob) {
 }
 
 /**
+ * Whether og/{user_id}.jpg exists: true, false, or null when it could not be
+ * told — the caller should do nothing on null rather than guess.
+ *
+ * Asked of the public URL, the same way api/og-page.js asks, so "exists" means
+ * exactly what the crawler-facing page will find.
+ *
+ * @param {string} userId
+ * @returns {Promise<boolean | null>}
+ */
+export async function ogImageExists(userId) {
+  if (!supabase || !userId) return null;
+  try {
+    const { data } = supabase.storage.from(OG_BUCKET).getPublicUrl(`${userId}.jpg`);
+    const res = await fetch(data.publicUrl, { method: "HEAD", cache: "no-store" });
+    if (res.ok) return true;
+    if (res.status === 400 || res.status === 404) return false;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * After login: adopt the guest Moodscreen into the account, but only into an
  * account that has none.
  *

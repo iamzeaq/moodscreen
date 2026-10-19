@@ -21,6 +21,7 @@ import {
   pendingUploadOwner,
   readGuestMoodscreen,
   serializeMoodscreenState,
+  ogImageExists,
   uploadOgImage,
   upsertMoodscreenForUser,
   writeGuestMoodscreen,
@@ -943,6 +944,38 @@ export function MoodscreenProvider({ children }) {
       state.running = false;
     }
   };
+
+  /**
+   * The link preview for an account that has not saved since it was due one.
+   *
+   * Saves only follow edits, so a save-only trigger leaves two people on the
+   * generic preview indefinitely: anyone whose last edit predates link
+   * previews, and anyone who claims a handle and does not touch the Moodscreen
+   * afterwards — the claim is a profile write, not a form change. So once per
+   * account and handle, after the account's Moodscreen has loaded, upload one if
+   * the bucket has none.
+   *
+   * A handle changed mid-session uploads regardless: the image exists, but its
+   * lockup reads the old .live/ address.
+   */
+  const ogCheckedRef = useRef(null);
+  useEffect(() => {
+    if (!hydrated || !user?.id || !username) return;
+    const key = `${user.id}:${username}`;
+    const prev = ogCheckedRef.current;
+    if (prev === key) return;
+    ogCheckedRef.current = key;
+    const userId = user.id;
+    const renamed = Boolean(prev?.startsWith(`${userId}:`));
+    void (async () => {
+      /* Off the effect's turn before anything can reach the flushSync in
+       * refreshOgImage, which React refuses inside an effect. */
+      await null;
+      if (renamed || (await ogImageExists(userId)) === false) {
+        refreshOgImageRef.current?.(userId);
+      }
+    })();
+  }, [hydrated, user?.id, username]);
 
   const downloadPng = useCallback(async () => {
     if (isExporting) return;
