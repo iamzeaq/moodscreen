@@ -34,8 +34,15 @@
       crossorigin
     />
 
-    <!-- Open Graph / Twitter — per-user images are a server-rendered route, not shipped yet -->
+    <!--
+      Open Graph / Twitter — the generic preview. On moodscreen.live/username
+      api/og-page.js replaces every og:, twitter: and description tag here with
+      that person's, so these only answer for the rest of the site.
+    -->
     <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://moodscreen.live/og-default.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     <meta property="og:title" content="moodscreen — what are you on right now?" />
     <meta
       property="og:description"
@@ -43,7 +50,8 @@
     />
     <meta property="og:url" content="https://moodscreen.live/" />
     <meta property="og:site_name" content="moodscreen" />
-    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://moodscreen.live/og-default.png" />
     <meta name="twitter:title" content="moodscreen — what are you on right now?" />
     <meta
       name="twitter:description"

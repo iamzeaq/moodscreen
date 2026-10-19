@@ -1,6 +1,13 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/og-page.js": { "includeFiles": "dist/index.html" }
+  },
   "rewrites": [
+    {
+      "source": "/:username((?!create$|onboarding$|api$)[A-Za-z0-9_]{3,30})",
+      "destination": "/api/og-page?username=:username"
+    },
     { "source": "/((?!assets/|fonts/|textures/).*)", "destination": "/index.html" }
   ]
 }
