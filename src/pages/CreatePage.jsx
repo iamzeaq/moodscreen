@@ -77,21 +77,41 @@ export default function CreatePage() {
       </header>
 
       <main className="mx-auto flex w-full max-w-content flex-col items-center px-4 pb-24 pt-14 sm:px-6 sm:pt-20">
-        {/* The object. Nothing above it but the mark, nothing beside it. */}
-        <div ref={cardRef} className="w-full" style={{ maxWidth: CARD_MAX }}>
-          <Moodscreen
-            {...moodscreenProps}
-            width={cardWidth}
-            /* Held back for the one frame before storage is read, so a
-              * returning visitor never sees the default flash past the one
-              * they made. */
-            style={{
-              opacity: storageHydrated ? 1 : 0,
-              transitionProperty: "opacity",
-              transitionDuration: "var(--dur-enter)",
-              transitionTimingFunction: "var(--ease)",
-            }}
-          />
+        {/* The object. Nothing above it but the mark, nothing beside it.
+          *
+          * On a phone it is pinned to the top while the editor scrolls beneath
+          * it, so every change is seen landing on the thing it changes. Plain
+          * `position: sticky` and nothing else: no scroll listener, no
+          * transform, no easing — the card is held still, not chased. The
+          * band is full-bleed canvas so the options pass under it rather than
+          * showing through the bowed corners and the gutters. From `sm` up it
+          * is back in the flow as before.
+          *
+          * Pinned, it is capped at 42% of the phone's height so a small screen
+          * keeps more than half of itself for the options. `svh`, not `dvh`:
+          * the dynamic unit changes as the address bar slides away mid-scroll,
+          * which would resize the card under the thumb — the very movement this
+          * exists to remove. The card is square, so capping the width caps the
+          * height, and useFittedWidth follows the box. */}
+        <div className="sticky top-0 z-20 -mx-4 w-[calc(100%+2rem)] self-stretch bg-canvas px-4 pb-4 pt-[env(safe-area-inset-top)] sm:static sm:mx-0 sm:w-full sm:bg-transparent sm:p-0">
+          <div
+            ref={cardRef}
+            className="mx-auto w-full max-w-[min(400px,42svh)] sm:max-w-[400px]"
+          >
+            <Moodscreen
+              {...moodscreenProps}
+              width={cardWidth}
+              /* Held back for the one frame before storage is read, so a
+                * returning visitor never sees the default flash past the one
+                * they made. */
+              style={{
+                opacity: storageHydrated ? 1 : 0,
+                transitionProperty: "opacity",
+                transitionDuration: "var(--dur-enter)",
+                transitionTimingFunction: "var(--ease)",
+              }}
+            />
+          </div>
         </div>
 
         {/* The two actions. §10 allows one primary per view and Share is it —
