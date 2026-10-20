@@ -223,18 +223,23 @@ mid-range Android, which is a large share of the audience.
 **Never `transition: all`. Never `hover:scale`.**
 
 **No scroll-triggered stagger reveals on sections.** That is the clearest
-generated-page signature. The motion budget is spent on four moments only:
+generated-page signature. The motion budget is spent on three moments only:
 
 1. Mood change cross-fades the Moodscreen's colour and glyph — 240ms. The glyph
    is the §7.3 watermark; the small marks beside the label and in the lockup are
    at full ink and simply swap.
 2. The live status dot breathes, `scale 1 → 1.15`, 2.4s, infinite.
 3. Pulse counters roll their digits vertically when values change — 180ms.
-4. The hero Moodscreen scales down and joins the wall on scroll —
-   scroll-linked, the one heavy effect on the page.
 
-Honour `prefers-reduced-motion: reduce` — disable 2 and 4, keep 1 and 3
-as instant swaps.
+**No scroll-linked motion on any Moodscreen.** The hero card once scaled
+down, faded and flew into the wall on scroll; it read as a ghost trailing
+the page and was removed. The hero card sits in the hero and scrolls away
+with it, and the wall is its own section below. Do not bring the flight
+back, and do not add parallax, sliding or scroll-driven transforms to a card
+anywhere.
+
+Honour `prefers-reduced-motion: reduce` — disable 2, keep 1 and 3 as instant
+swaps.
 
 ---
 

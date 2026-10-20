@@ -102,7 +102,7 @@ function Tile({ tile, size }) {
   );
 }
 
-function Row({ tiles, size, direction, leadRef }) {
+function Row({ tiles, size, direction }) {
   /* Constant speed whatever the row is holding: the track travels one copy's
    * width per cycle, so the duration is that width over the speed. */
   const copyWidth = tiles.length * (size + GAP);
@@ -128,23 +128,11 @@ function Row({ tiles, size, direction, leadRef }) {
           </div>
         ))}
       </div>
-
-      {/* Where the hero's Moodscreen lands (§6, moment 4). An empty box at the
-        * row's leading edge, inside the mask's fade, measured rather than drawn
-        * — the flight needs a target that does not move with the track. */}
-      {leadRef ? (
-        <div
-          ref={leadRef}
-          aria-hidden="true"
-          className="pointer-events-none absolute left-[7%] top-0"
-          style={{ width: size, height: size }}
-        />
-      ) : null}
     </div>
   );
 }
 
-export default function WallSection({ tiles, joinTargetRef }) {
+export default function WallSection({ tiles }) {
   const size = useTileSize();
 
   if (!tiles || tiles.length === 0) return null;
@@ -160,7 +148,7 @@ export default function WallSection({ tiles, joinTargetRef }) {
       aria-label="Moodscreens people are sharing right now"
     >
       <div className="flex flex-col" style={{ gap: GAP }}>
-        <Row tiles={rowA} size={size} direction="forward" leadRef={joinTargetRef} />
+        <Row tiles={rowA} size={size} direction="forward" />
         <Row tiles={rowB} size={size} direction="reverse" />
       </div>
     </section>
