@@ -31,6 +31,17 @@ const DEFAULT_TITLE = "moodscreen — what are you on right now?";
 const DEFAULT_DESCRIPTION = "Say what you're on. Post it anywhere. It stays live.";
 const DEFAULT_IMAGE_PATH = "/og-default.png";
 
+/**
+ * The page's one name, whichever host served this request.
+ *
+ * The same page answers on www and on the apex, and `og:url` is what platforms
+ * key their preview cache on — so a page that names itself after its request
+ * host has two cache entries, and whichever was scraped first goes on
+ * unfurling. Matches CANONICAL_ORIGIN in src/lib/share.js, which is what every
+ * shared link uses.
+ */
+const CANONICAL_ORIGIN = "https://moodscreen.live";
+
 /** Same rule as isUsernameSlugValid, minus the reserved list: a reserved name
  * can never be claimed, so it simply finds no row. */
 const SLUG = /^[a-z0-9_]{3,30}$/;
@@ -208,7 +219,7 @@ export default async function handler(req, res) {
 
   const title = row ? name || handle : DEFAULT_TITLE;
   const description = row ? statement || DEFAULT_DESCRIPTION : DEFAULT_DESCRIPTION;
-  const pageUrl = row ? `${origin}/${handle}` : `${origin}/${raw}`;
+  const pageUrl = row ? `${CANONICAL_ORIGIN}/${handle}` : `${CANONICAL_ORIGIN}/${raw}`;
 
   const tags = headTags({
     title,

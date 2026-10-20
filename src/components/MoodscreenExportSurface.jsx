@@ -85,7 +85,13 @@ function Backdrop({ id, width = BASE_SIZE, height = BASE_SIZE, children }) {
  * share blob becoming ready — used to reconcile both of them. Its props are all
  * primitives, so a shallow compare is the whole test.
  */
-function MoodscreenExportSurface({ idPrefix = EXPORT_NODE_ID, ...props }) {
+/**
+ * `defaultOnly` mounts just the default-mode twin. The public page uses it: it
+ * shares a stranger's Moodscreen as an image but never makes a sticker or a
+ * link preview of it, and two more full cards on the page shared links land
+ * on would be work nobody sees.
+ */
+function MoodscreenExportSurface({ idPrefix = EXPORT_NODE_ID, defaultOnly = false, ...props }) {
   const ids = nodeIdsFor(idPrefix);
 
   return (
@@ -96,7 +102,7 @@ function MoodscreenExportSurface({ idPrefix = EXPORT_NODE_ID, ...props }) {
         left: -99999,
         top: 0,
         width: BASE_SIZE,
-        height: BASE_SIZE * 2 + OG_HEIGHT,
+        height: defaultOnly ? BASE_SIZE : BASE_SIZE * 2 + OG_HEIGHT,
         pointerEvents: "none",
         zIndex: -1,
       }}
@@ -105,16 +111,20 @@ function MoodscreenExportSurface({ idPrefix = EXPORT_NODE_ID, ...props }) {
         <Moodscreen {...props} forExport width={BASE_SIZE * (1 - MARGIN * 2)} />
       </Backdrop>
 
-      {/* Sticker: no wrapper of its own. The card's clip-path is the edge of
-        * the file, which is the whole point of the mode. */}
-      <Moodscreen {...props} forExport id={ids.sticker} width={BASE_SIZE} />
+      {defaultOnly ? null : (
+        <>
+          {/* Sticker: no wrapper of its own. The card's clip-path is the edge
+            * of the file, which is the whole point of the mode. */}
+          <Moodscreen {...props} forExport id={ids.sticker} width={BASE_SIZE} />
 
-      {/* Link preview: the same backdrop, wider. The screen keeps the 7% margin
-        * against the short side and sits centred, so a platform that crops the
-        * preview to a square still has the whole screen. */}
-      <Backdrop id={ids.og} width={OG_WIDTH} height={OG_HEIGHT}>
-        <Moodscreen {...props} forExport width={Math.round(OG_HEIGHT * (1 - MARGIN * 2))} />
-      </Backdrop>
+          {/* Link preview: the same backdrop, wider. The screen keeps the 7%
+            * margin against the short side and sits centred, so a platform
+            * that crops the preview to a square still has the whole screen. */}
+          <Backdrop id={ids.og} width={OG_WIDTH} height={OG_HEIGHT}>
+            <Moodscreen {...props} forExport width={Math.round(OG_HEIGHT * (1 - MARGIN * 2))} />
+          </Backdrop>
+        </>
+      )}
     </div>
   );
 }

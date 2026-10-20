@@ -827,10 +827,16 @@ it. The plane is drawn in the mark's idiom — strokes, round caps and joins,
 sheet, the plane swaps to a tick for a moment and a polite live region says
 `Link copied`. It lives in `<ShareButton>`.
 
-On `/create`, Share sends the image and the `moodscreen.live/username` link.
-On the public page it sends the link only: the link preview already unfurls
-as the Moodscreen, so capturing a hidden copy there would be the same picture
-again, bought on every visit to the page shared links land on.
+**Share is image-first, on `/create` and on the public page alike.** The
+rendered Moodscreen goes out as a full picture — the §7.8 default export,
+photographed from the one renderer, never a second layout — so in a story it
+fills the frame and in a chat it lands as a photo, not a link-preview box. The
+link rides along as its caption, **once**, and always as the apex
+`https://moodscreen.live/username`, never www and never the host the sharer
+happens to be on (`CANONICAL_ORIGIN` in `src/lib/share.js`). The public page
+captures its Moodscreen on load, because the share sheet has to open inside
+the tap; until the file exists the button shows its spinner. If the image
+cannot be made, the link goes alone.
 
 The wide **210 × 68** form, with the face mark beside the label, remains for
 primary actions that are not Share. Both reuse `screenPathBox`; nothing about
