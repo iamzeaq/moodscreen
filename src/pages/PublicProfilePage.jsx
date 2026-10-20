@@ -30,7 +30,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Moodscreen from "../components/Moodscreen.jsx";
-import MoodscreenExportSurface, { nodeIdsFor } from "../components/MoodscreenExportSurface.jsx";
+import MoodscreenExportSurface, {
+  nodeIdsFor,
+  STORY_PIXEL_RATIO,
+} from "../components/MoodscreenExportSurface.jsx";
 import ShareButton from "../components/brand/ShareButton.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import useFittedWidth from "../hooks/useFittedWidth.js";
@@ -111,9 +114,8 @@ const PUBLIC_EXPORT_PREFIX = "moodscreen-public";
  * Image first, the same as the app: the rendered Moodscreen goes out as a full
  * picture, so in a story it fills the frame and in a chat it lands as a photo
  * rather than a link-preview box, with the address riding along as its
- * caption. The picture is the real export — the same default-mode twin the
- * app photographs, drawn here with this page's Moodscreen — not a second
- * layout.
+ * caption. The picture is the real export — the same 9:16 story twin the app
+ * shares, drawn here with this page's Moodscreen — not a second layout.
  *
  * Captured once, as soon as the page has loaded, because Web Share has to be
  * called in the tap's own turn and a capture cannot fit inside one. Until it
@@ -146,12 +148,12 @@ function usePageShare(page) {
      * DOM to be photographed. */
     const t = window.setTimeout(async () => {
       try {
-        const node = document.getElementById(nodeIdsFor(PUBLIC_EXPORT_PREFIX).default);
+        const node = document.getElementById(nodeIdsFor(PUBLIC_EXPORT_PREFIX).story);
         if (!node) throw new Error("The Moodscreen is not ready yet.");
         const theme = getTheme(page.themeId);
         await ensureMoodscreenFontsReady(theme);
         if (cancelled) return;
-        const blob = await captureMoodscreenBlob(node, { theme });
+        const blob = await captureMoodscreenBlob(node, { theme, pixelRatio: STORY_PIXEL_RATIO });
         if (cancelled) return;
         const filename = exportFilename(page.username, page.name);
         setFile(new File([blob], filename, { type: "image/png" }));
@@ -399,7 +401,7 @@ export default function PublicProfilePage() {
           * same named props as the screen above. */}
         <MoodscreenExportSurface
           idPrefix={PUBLIC_EXPORT_PREFIX}
-          defaultOnly
+          storyOnly
           mood={page.mood}
           statement={page.statement}
           name={page.name}
