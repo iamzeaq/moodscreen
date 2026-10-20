@@ -1,8 +1,9 @@
 /**
  * The off-screen twins — CLAUDE.md §7.8.
  *
- * Two <Moodscreen>s with `forExport`, mounted for the life of the app and
- * parked outside the viewport, one per export mode. Every capture photographs
+ * <Moodscreen>s with `forExport`, mounted for the life of the app and parked
+ * outside the viewport: one per export mode, plus the link preview and the
+ * story frame Share sends. Every capture photographs
  * one of these nodes, so the export path never clones or restyles anything —
  * see src/lib/exportMoodscreen.js.
  *
@@ -17,6 +18,7 @@
  */
 import { memo } from "react";
 import Moodscreen, { BASE_SIZE } from "./Moodscreen.jsx";
+import { getMood } from "../lib/moods.js";
 
 export const EXPORT_NODE_ID = "moodscreen-export";
 
@@ -37,7 +39,30 @@ export const OG_WIDTH = 1200;
 export const OG_HEIGHT = 630;
 
 /**
- * The two node ids for a given surface.
+ * The story frame: 9:16, what Share sends. 540x960 photographed at 2x is
+ * 1080x1920, the size IG, WhatsApp and Snap stories are drawn at, so a shared
+ * Moodscreen fills the whole story rather than a square band across it.
+ *
+ * Not a fourth export mode either — nobody picks it. Download stays the §7.8
+ * square; this is only what the share sheet is handed.
+ */
+export const STORY_WIDTH = BASE_SIZE;
+export const STORY_HEIGHT = Math.round((BASE_SIZE * 16) / 9);
+export const STORY_PIXEL_RATIO = 2;
+
+/**
+ * The story's ground: the exact mood colour, full height, on every surface.
+ *
+ * On `colour` that is the card's own fill, so the screen sits on its colour
+ * and reads by its texture, vignette and night tint rather than by contrast
+ * at the edge. Chosen knowingly over a deeper tone of the hue.
+ */
+export function storyBackground(moodId) {
+  return (getMood(moodId) ?? getMood("thinking")).color;
+}
+
+/**
+ * The node ids for a given surface.
  *
  * Parameterised because more than one of these can be mounted at once —
  * /kitchen-sink puts up its own alongside the app-wide one in
@@ -45,7 +70,12 @@ export const OG_HEIGHT = 630;
  * capture photograph whichever the DOM happened to reach first.
  */
 export function nodeIdsFor(prefix = EXPORT_NODE_ID) {
-  return { default: prefix, sticker: `${prefix}-sticker`, og: `${prefix}-og` };
+  return {
+    default: prefix,
+    sticker: `${prefix}-sticker`,
+    og: `${prefix}-og`,
+    story: `${prefix}-story`,
+  };
 }
 
 export const EXPORT_NODE_IDS = nodeIdsFor();
@@ -60,14 +90,14 @@ export const EXPORT_NODE_IDS = nodeIdsFor();
  * Near-black rather than the mood colour, so a shared Moodscreen carries the
  * brand surface with it and the mood stays the thing that pops.
  */
-function Backdrop({ id, width = BASE_SIZE, height = BASE_SIZE, children }) {
+function Backdrop({ id, width = BASE_SIZE, height = BASE_SIZE, background = "var(--canvas)", children }) {
   return (
     <div
       id={id}
       style={{
         width,
         height,
-        background: "var(--canvas)",
+        background,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -86,13 +116,15 @@ function Backdrop({ id, width = BASE_SIZE, height = BASE_SIZE, children }) {
  * primitives, so a shallow compare is the whole test.
  */
 /**
- * `defaultOnly` mounts just the default-mode twin. The public page uses it: it
- * shares a stranger's Moodscreen as an image but never makes a sticker or a
- * link preview of it, and two more full cards on the page shared links land
- * on would be work nobody sees.
+ * `storyOnly` mounts just the story twin. The public page uses it: it shares a
+ * stranger's Moodscreen but never downloads, stickers or previews it, and three
+ * more full cards on the page shared links land on would be work nobody sees.
  */
-function MoodscreenExportSurface({ idPrefix = EXPORT_NODE_ID, defaultOnly = false, ...props }) {
+function MoodscreenExportSurface({ idPrefix = EXPORT_NODE_ID, storyOnly = false, ...props }) {
   const ids = nodeIdsFor(idPrefix);
+  /* The same card, at the same width, as the square file — the story is a
+   * taller frame round it, not a different drawing of it. */
+  const cardWidth = BASE_SIZE * (1 - MARGIN * 2);
 
   return (
     <div
@@ -102,17 +134,26 @@ function MoodscreenExportSurface({ idPrefix = EXPORT_NODE_ID, defaultOnly = fals
         left: -99999,
         top: 0,
         width: BASE_SIZE,
-        height: defaultOnly ? BASE_SIZE : BASE_SIZE * 2 + OG_HEIGHT,
+        height: storyOnly ? STORY_HEIGHT : BASE_SIZE * 2 + OG_HEIGHT + STORY_HEIGHT,
         pointerEvents: "none",
         zIndex: -1,
       }}
     >
-      <Backdrop id={ids.default}>
-        <Moodscreen {...props} forExport width={BASE_SIZE * (1 - MARGIN * 2)} />
+      <Backdrop
+        id={ids.story}
+        width={STORY_WIDTH}
+        height={STORY_HEIGHT}
+        background={storyBackground(props.mood)}
+      >
+        <Moodscreen {...props} forExport width={cardWidth} />
       </Backdrop>
 
-      {defaultOnly ? null : (
+      {storyOnly ? null : (
         <>
+          <Backdrop id={ids.default}>
+            <Moodscreen {...props} forExport width={cardWidth} />
+          </Backdrop>
+
           {/* Sticker: no wrapper of its own. The card's clip-path is the edge
             * of the file, which is the whole point of the mode. */}
           <Moodscreen {...props} forExport id={ids.sticker} width={BASE_SIZE} />

@@ -617,6 +617,17 @@ preserved and the screen genuinely sits on the person's photo.
 The backdrop is near-black rather than the mood colour, so a shared Moodscreen
 carries the brand surface with it and the mood stays the thing that pops.
 
+**Share sends a third frame, the story: 1080 × 1920.** A square in a 9:16
+story fills the width and leaves the rest to the platform's blur; the story
+frame fills all of it. It is the same `<Moodscreen forExport>` at the same
+width as the square file, centred in a 540 × 960 frame photographed at 2× —
+a taller frame round the card, never a resized or re-laid-out card. Its
+ground is the exact mood colour, full height, on every surface
+(`storyBackground`) — including `colour`, where it matches the card's own
+fill and the screen reads by its texture and vignette rather than by its
+edge. That is a deliberate choice over a deeper tone of the hue. Download keeps the
+square; the story is only what the share sheet is handed.
+
 Everything else in the existing export path stays: `document.fonts.load()` for
 the active theme family followed by `document.fonts.ready`, cached
 `getFontEmbedCSS`, pre-rendered blob on a 400ms debounce for one-tap share,
@@ -828,7 +839,7 @@ sheet, the plane swaps to a tick for a moment and a polite live region says
 `Link copied`. It lives in `<ShareButton>`.
 
 **Share is image-first, on `/create` and on the public page alike.** The
-rendered Moodscreen goes out as a full picture — the §7.8 default export,
+rendered Moodscreen goes out as a full picture — the §7.8 story frame,
 photographed from the one renderer, never a second layout — so in a story it
 fills the frame and in a chat it lands as a photo, not a link-preview box. The
 link rides along as its caption, **once**, and always as the apex

@@ -12,6 +12,7 @@ import { useAuth } from "./AuthContext.jsx";
 import MoodscreenExportSurface, {
   EXPORT_NODE_ID,
   EXPORT_NODE_IDS,
+  STORY_PIXEL_RATIO,
 } from "../components/MoodscreenExportSurface.jsx";
 import {
   clearPendingUpload,
@@ -759,12 +760,20 @@ export function MoodscreenProvider({ children }) {
     void (async () => {
       try {
         const node = document.getElementById(EXPORT_NODE_ID);
-        if (!node || cancelled) return;
+        const storyNode = document.getElementById(EXPORT_NODE_IDS.story);
+        if (!node || !storyNode || cancelled) return;
 
         const theme = getTheme(exportProps.themeId);
         await ensureMoodscreenFontsReady(theme);
         if (cancelled) return;
 
+        /* Both files, the story first: Share is the primary action and it
+         * sends the story, while Download keeps the §7.8 square. */
+        const storyBlob = await captureMoodscreenBlob(storyNode, {
+          theme,
+          pixelRatio: STORY_PIXEL_RATIO,
+        });
+        if (cancelled) return;
         const blob = await captureMoodscreenBlob(node, { theme });
         if (cancelled) return;
 
@@ -776,6 +785,7 @@ export function MoodscreenProvider({ children }) {
           blob,
           filename,
           file: new File([blob], filename, { type: "image/png" }),
+          storyFile: new File([storyBlob], filename, { type: "image/png" }),
         };
         if (!cancelled) setShareReady(true);
       } catch (e) {
@@ -795,7 +805,7 @@ export function MoodscreenProvider({ children }) {
     return prep && prep.key === exportKeyRef.current ? prep : null;
   }, []);
 
-  const captureNow = useCallback(async () => {
+  const captureNow = useCallback(async ({ story = false } = {}) => {
     /**
      * Bring the twins up to the live card before photographing one.
      *
@@ -812,11 +822,14 @@ export function MoodscreenProvider({ children }) {
     try {
       flushSync(() => setExportProps(moodscreenPropsRef.current));
 
-      const node = document.getElementById(EXPORT_NODE_ID);
+      const node = document.getElementById(story ? EXPORT_NODE_IDS.story : EXPORT_NODE_ID);
       if (!node) throw new Error("The Moodscreen is not ready yet.");
       const theme = getTheme(formValueRef.current?.themeId);
       await ensureMoodscreenFontsReady(theme);
-      const blob = await captureMoodscreenBlob(node, { theme });
+      const blob = await captureMoodscreenBlob(node, {
+        theme,
+        ...(story ? { pixelRatio: STORY_PIXEL_RATIO } : {}),
+      });
       /* The handle the card is wearing, not only a claimed one — a guest who
        * has typed a name into the claim field gets `moodscreen-isaac.png`
        * rather than a file named after nobody. */
@@ -991,13 +1004,15 @@ export function MoodscreenProvider({ children }) {
     const pageUrl = publicPageUrl(claimedUsernameRef.current);
     const title = "moodscreen";
 
+    /* Share sends the 9:16 story file; where the browser cannot carry a file
+     * it saves the square instead, which is what Download would have done. */
     const prep = currentPrepared();
     if (prep) {
-      if (!canShareFiles(prep.file)) {
+      if (!canShareFiles(prep.storyFile)) {
         void downloadPng();
         return;
       }
-      void shareMoodscreen({ file: prep.file, title, url: pageUrl }).catch((e) => {
+      void shareMoodscreen({ file: prep.storyFile, title, url: pageUrl }).catch((e) => {
         if (e && e.name === "AbortError") return;
         console.warn("moodscreen share:", e);
         const msg = e && typeof e.message === "string" ? e.message : String(e);
@@ -1013,13 +1028,13 @@ export function MoodscreenProvider({ children }) {
     setIsExporting(true);
     void (async () => {
       try {
-        const { blob, filename } = await captureNow();
+        const { blob, filename } = await captureNow({ story: true });
         const file = new File([blob], filename, { type: "image/png" });
-        preparedRef.current = { key: exportKeyRef.current, blob, file, filename };
-        setShareReady(true);
         if (!canShareFiles(file)) {
-          if (isLikelyIOS()) openImageInNewTab(blob);
-          else triggerBrowserDownload(blob, filename);
+          /* Nowhere to send it, so save the square, as Download would. */
+          const square = await captureNow();
+          if (isLikelyIOS()) openImageInNewTab(square.blob);
+          else triggerBrowserDownload(square.blob, square.filename);
           return;
         }
         await shareMoodscreen({ file, title, url: pageUrl });
