@@ -30,10 +30,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Moodscreen from "../components/Moodscreen.jsx";
+import MoodscreenExportSurface, { nodeIdsFor } from "../components/MoodscreenExportSurface.jsx";
 import ShareButton from "../components/brand/ShareButton.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import useFittedWidth from "../hooks/useFittedWidth.js";
-import { canShareLink, publicPageUrl, shareMoodscreen } from "../lib/share.js";
+import {
+  captureMoodscreenBlob,
+  ensureMoodscreenFontsReady,
+  exportFilename,
+} from "../lib/exportMoodscreen.js";
+import { canShareFiles, canShareLink, publicPageUrl, shareMoodscreen } from "../lib/share.js";
+import { getTheme } from "../themes/index.js";
 import {
   isReservedUsername,
   isUsernameSlugValid,
@@ -95,26 +102,70 @@ function useRelativeTime(at) {
 /** How long the tick holds after a copy before the plane comes back. */
 const COPIED_MS = 1600;
 
+/** The off-screen twin this page photographs — its own ids, apart from the app's. */
+const PUBLIC_EXPORT_PREFIX = "moodscreen-public";
+
 /**
  * Share someone else's Moodscreen — the page's one action, and its growth path.
  *
- * The link only. api/og-page.js already makes moodscreen.live/username unfurl
- * as this Moodscreen wherever it is pasted, so the image arrives with the link
- * and photographing a hidden copy here would be the same picture again —
- * bought with a second render and a 1620px capture on every visit to the page
- * shared links land on. The app's Share still sends the image as well: there
- * the file is the product and the owner is choosing to post it.
+ * Image first, the same as the app: the rendered Moodscreen goes out as a full
+ * picture, so in a story it fills the frame and in a chat it lands as a photo
+ * rather than a link-preview box, with the address riding along as its
+ * caption. The picture is the real export — the same default-mode twin the
+ * app photographs, drawn here with this page's Moodscreen — not a second
+ * layout.
  *
- * With no share sheet at all — most desktop browsers — the link is copied.
+ * Captured once, as soon as the page has loaded, because Web Share has to be
+ * called in the tap's own turn and a capture cannot fit inside one. Until it
+ * lands the button shows the spinner, so a tap always has the file. Only where
+ * there is a share sheet to hand it to: a desktop browser without one copies
+ * the link, and photographing a card it will never send would be waste.
+ *
+ * If the capture fails — a remote avatar that refuses to be fetched is the
+ * likely case — the share still happens, with the link alone.
  */
 function usePageShare(page) {
   const [copied, setCopied] = useState(false);
+  const [file, setFile] = useState(null);
+  const [captureFailed, setCaptureFailed] = useState(false);
+  const sheet = canShareLink();
 
   useEffect(() => {
     if (!copied) return undefined;
     const t = window.setTimeout(() => setCopied(false), COPIED_MS);
     return () => window.clearTimeout(t);
   }, [copied]);
+
+  useEffect(() => {
+    setFile(null);
+    setCaptureFailed(false);
+    if (!page || !sheet) return undefined;
+
+    let cancelled = false;
+    /* A turn after commit, so the twin mounted in the same render is in the
+     * DOM to be photographed. */
+    const t = window.setTimeout(async () => {
+      try {
+        const node = document.getElementById(nodeIdsFor(PUBLIC_EXPORT_PREFIX).default);
+        if (!node) throw new Error("The Moodscreen is not ready yet.");
+        const theme = getTheme(page.themeId);
+        await ensureMoodscreenFontsReady(theme);
+        if (cancelled) return;
+        const blob = await captureMoodscreenBlob(node, { theme });
+        if (cancelled) return;
+        const filename = exportFilename(page.username, page.name);
+        setFile(new File([blob], filename, { type: "image/png" }));
+      } catch (e) {
+        console.warn("moodscreen public capture:", e);
+        if (!cancelled) setCaptureFailed(true);
+      }
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [page, sheet]);
 
   const share = useCallback(() => {
     if (!page) return;
@@ -130,14 +181,18 @@ function usePageShare(page) {
       void copy();
       return;
     }
-    void shareMoodscreen({ title: `${page.name} on moodscreen`, url }).catch((e) => {
+    void shareMoodscreen({
+      file: file && canShareFiles(file) ? file : null,
+      title: `${page.name} on moodscreen`,
+      url,
+    }).catch((e) => {
       if (e && e.name === "AbortError") return;
       console.warn("moodscreen public share:", e);
       void copy();
     });
-  }, [page]);
+  }, [page, file]);
 
-  return { share, copied };
+  return { share, copied, preparing: sheet && Boolean(page) && !file && !captureFailed };
 }
 
 export default function PublicProfilePage() {
@@ -228,7 +283,7 @@ export default function PublicProfilePage() {
 
   const updated = useRelativeTime(page?.changedAt);
   const [cardRef, cardWidth] = useFittedWidth(CARD_MAX);
-  const { share, copied } = usePageShare(page);
+  const { share, copied, preparing } = usePageShare(page);
 
   if (loading) {
     return <div className="min-h-dvh bg-canvas" aria-hidden />;
@@ -332,7 +387,28 @@ export default function PublicProfilePage() {
           * the Moodscreen it sends. Centred, unlike the app's: everything on
           * this page sits on one centred axis under the screen, and a single
           * left-aligned button on it would read as a layout fault. */}
-        <ShareButton mood={page.mood} onClick={share} done={copied} className="mt-8" />
+        <ShareButton
+          mood={page.mood}
+          onClick={share}
+          done={copied}
+          loading={preparing}
+          className="mt-8"
+        />
+
+        {/* The picture Share sends: the export twin, off screen, wearing the
+          * same named props as the screen above. */}
+        <MoodscreenExportSurface
+          idPrefix={PUBLIC_EXPORT_PREFIX}
+          defaultOnly
+          mood={page.mood}
+          statement={page.statement}
+          name={page.name}
+          username={page.username}
+          avatarUrl={page.avatarUrl}
+          surface={page.surface}
+          themeId={page.themeId}
+          at={page.at}
+        />
 
         {href ? (
           <a
