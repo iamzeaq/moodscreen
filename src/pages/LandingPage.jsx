@@ -28,7 +28,7 @@
  * both sections whether they are drawing, and the alternation falls out of
  * what is actually on the page.
  */
-import { Fragment, useRef } from "react";
+import { Fragment } from "react";
 import Hero from "../components/Hero.jsx";
 import HowItWorks from "../components/HowItWorks.jsx";
 import ThemesSection from "../components/ThemesSection.jsx";
@@ -36,7 +36,6 @@ import PulseSection from "../components/PulseSection.jsx";
 import WallSection from "../components/WallSection.jsx";
 import ClosingSection from "../components/ClosingSection.jsx";
 import ScreenDivider from "../components/brand/ScreenDivider.jsx";
-import HeroJoin from "../components/wall/HeroJoin.jsx";
 import SiteNav from "../components/SiteNav.jsx";
 import { usePulse, useWallTiles } from "../hooks/useWall.js";
 
@@ -44,19 +43,11 @@ export default function LandingPage() {
   const { pulse, visible: pulseVisible } = usePulse();
   const { tiles, visible: wallVisible } = useWallTiles();
 
-  /* The two ends of §6's fourth moment. The hero owns one and the wall's first
-   * row owns the other; only this page can see both. */
-  const heroCardRef = useRef(null);
-  const joinTargetRef = useRef(null);
-
+  /* The hero and the wall are independent sections: nothing links the hero's
+   * card to the wall on scroll. Each scrolls with the page like any other. */
   const sections = [
     pulseVisible ? { key: "pulse", node: <PulseSection pulse={pulse} /> } : null,
-    wallVisible
-      ? {
-          key: "wall",
-          node: <WallSection tiles={tiles} joinTargetRef={joinTargetRef} />,
-        }
-      : null,
+    wallVisible ? { key: "wall", node: <WallSection tiles={tiles} /> } : null,
     { key: "how", node: <HowItWorks /> },
     { key: "themes", node: <ThemesSection /> },
     { key: "close", node: <ClosingSection /> },
@@ -68,7 +59,7 @@ export default function LandingPage() {
         * below it needs the top padding to clear it — see SiteNav. */}
       <div className="relative">
         <SiteNav />
-        <Hero cardRef={heroCardRef} />
+        <Hero />
       </div>
 
       {sections.map((s, i) => (
@@ -77,11 +68,6 @@ export default function LandingPage() {
           {s.node}
         </Fragment>
       ))}
-
-      {/* Mounted only when there is a wall to join. Renders nothing under
-        * `prefers-reduced-motion`, which is the half of §6's rule that CSS
-        * cannot enforce. */}
-      {wallVisible ? <HeroJoin sourceRef={heroCardRef} targetRef={joinTargetRef} /> : null}
     </div>
   );
 }

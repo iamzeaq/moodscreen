@@ -35,15 +35,7 @@ import { PLACEHOLDER_STATEMENT, useMoodscreen } from "../context/MoodscreenConte
 /** The size the preview wants when the row has room for it. */
 const CARD_MAX = 360;
 
-export default function Hero({
-  /**
-   * The wrapper around the preview, handed up so §6's fourth moment can fly a
-   * copy of it down to the wall. The hero never styles this element itself —
-   * HeroJoin writes to it during the flight, and a re-render here would undo
-   * that if the two shared a node.
-   */
-  cardRef,
-}) {
+export default function Hero() {
   const {
     formValue,
     handleFormChange,
@@ -80,15 +72,10 @@ export default function Hero({
           * and stacked on a phone with the card first — seeing the thing you
           * are making is what makes typing into it feel like making. */}
         <div className="mt-12 flex w-full flex-col items-center gap-10 lg:mt-16 lg:flex-row lg:items-center lg:justify-center lg:gap-16">
-          {/* Two refs on one node: HeroJoin flies this box down to the wall,
-            * and useFittedWidth measures it. Composed rather than nested,
-            * because an inner wrapper would be a second box for the flight to
-            * disagree with. */}
+          {/* Sits in the flow and scrolls away with the hero. Nothing on the
+            * page moves it — there is no scroll-linked effect on this card. */}
           <div
-            ref={(node) => {
-              cardRef.current = node;
-              fitRef(node);
-            }}
+            ref={fitRef}
             /* Not `shrink-0` any more: the point is that this box is allowed
               * to be narrower than 360, and the drawn card follows it. */
             className="order-1 w-full lg:order-2"
