@@ -622,10 +622,11 @@ story fills the width and leaves the rest to the platform's blur; the story
 frame fills all of it. It is the same `<Moodscreen forExport>` at the same
 width as the square file, centred in a 540 × 960 frame photographed at 2× —
 a taller frame round the card, never a resized or re-laid-out card. Its
-ground is the exact mood colour, full height, on every surface
-(`storyBackground`) — including `colour`, where it matches the card's own
-fill and the screen reads by its texture and vignette rather than by its
-edge. That is a deliberate choice over a deeper tone of the hue. Download keeps the
+ground is the mood colour, full height (`storyBackground`): exact on `ink`
+and `paper`, and a deeper tone of the same hue on `colour`. The exact colour
+was tried on `colour` and the card dissolved into it — the outline is the
+brand and must always read. Not a shadow either: `box-shadow` is a rectangle
+round a bowed shape and a `drop-shadow` filter does not survive the capture. Download keeps the
 square; the story is only what the share sheet is handed.
 
 Everything else in the existing export path stays: `document.fonts.load()` for

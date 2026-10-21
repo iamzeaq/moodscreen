@@ -18,6 +18,7 @@
  */
 import { memo } from "react";
 import Moodscreen, { BASE_SIZE } from "./Moodscreen.jsx";
+import { lighten } from "../lib/color.js";
 import { getMood } from "../lib/moods.js";
 
 export const EXPORT_NODE_ID = "moodscreen-export";
@@ -51,14 +52,22 @@ export const STORY_HEIGHT = Math.round((BASE_SIZE * 16) / 9);
 export const STORY_PIXEL_RATIO = 2;
 
 /**
- * The story's ground: the exact mood colour, full height, on every surface.
+ * The story's ground: the mood colour, full height.
  *
- * On `colour` that is the card's own fill, so the screen sits on its colour
- * and reads by its texture, vignette and night tint rather than by contrast
- * at the edge. Chosen knowingly over a deeper tone of the hue.
+ * Exact on `ink` and `paper`, where the card is a different field and stands
+ * off it on its own. On `colour` the card *is* the mood colour, and a ground of
+ * the same fill dissolves the outline §7.1 calls the brand — tried, and the
+ * screen vanished into it. There the ground is a deeper tone of the same hue,
+ * so it is still the mood but the screen reads as an object on it.
+ *
+ * Not a shadow: box-shadow is a rectangle round a bowed shape, and a
+ * drop-shadow filter is exactly what html-to-image does not reliably capture.
  */
-export function storyBackground(moodId) {
-  return (getMood(moodId) ?? getMood("thinking")).color;
+const STORY_DEEPEN = -0.16;
+
+export function storyBackground(moodId, surface) {
+  const mood = getMood(moodId) ?? getMood("thinking");
+  return surface === "ink" || surface === "paper" ? mood.color : lighten(mood.color, STORY_DEEPEN);
 }
 
 /**
@@ -143,7 +152,7 @@ function MoodscreenExportSurface({ idPrefix = EXPORT_NODE_ID, storyOnly = false,
         id={ids.story}
         width={STORY_WIDTH}
         height={STORY_HEIGHT}
-        background={storyBackground(props.mood)}
+        background={storyBackground(props.mood, props.surface)}
       >
         <Moodscreen {...props} forExport width={cardWidth} />
       </Backdrop>
